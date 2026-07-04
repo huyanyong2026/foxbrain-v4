@@ -105,6 +105,18 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - AI CEO memory context placeholder
 - Health check now reports memory engine status
 
+## V4 Task008 Completed
+
+- Enterprise Knowledge Graph Center
+- Generic entity model
+- Relationship model upgrade
+- Rule-based graph extraction placeholder
+- Entity network API
+- Graph search
+- Risk Map framework
+- Osprey Risk Graph placeholder
+- Health check now reports knowledge graph status
+
 ## V4 Routes
 
 - `/`
@@ -126,6 +138,7 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - `/automation`
 - `/memory`
 - `/decisions`
+- `/graph`
 - `/system/health`
 - `/agents`
 - `/workflow`
@@ -148,6 +161,10 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - `GET /api/memory`
 - `GET /api/preferences`
 - `GET /api/decisions`
+- `GET /api/graph`
+- `GET /api/graph/entities`
+- `GET /api/graph/relationships`
+- `GET /api/graph/risk-map`
 
 ## Security
 

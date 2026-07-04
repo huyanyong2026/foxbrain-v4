@@ -701,6 +701,60 @@ create table if not exists decision_memories(
 """
         )
         conn.execute("create index if not exists idx_decision_memories_date on decision_memories(decision_date)")
+        ensure_column(conn, "relations", "relationship_id", "relationship_id text")
+        ensure_column(conn, "relations", "source_entity_type", "source_entity_type text")
+        ensure_column(conn, "relations", "source_entity_id", "source_entity_id integer")
+        ensure_column(conn, "relations", "target_entity_type", "target_entity_type text")
+        ensure_column(conn, "relations", "target_entity_id", "target_entity_id integer")
+        ensure_column(conn, "relations", "strength", "strength text not null default 'normal'")
+        ensure_column(conn, "relations", "confidence", "confidence text not null default 'medium'")
+        ensure_column(conn, "relations", "direction", "direction text not null default 'directed'")
+        ensure_column(conn, "relations", "description", "description text")
+        ensure_column(conn, "relations", "evidence_type", "evidence_type text")
+        ensure_column(conn, "relations", "evidence_id", "evidence_id integer")
+        ensure_column(conn, "relations", "updated_at", "updated_at integer")
+        conn.execute(
+            """
+create table if not exists graph_entities(
+ id integer primary key autoincrement,
+ entity_id text unique,
+ entity_type text not null,
+ entity_key text,
+ entity_name text not null,
+ description text,
+ source_type text,
+ source_id text,
+ status text not null default 'active',
+ created_by integer,
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_graph_entities_type on graph_entities(entity_type)")
+        conn.execute("create index if not exists idx_graph_entities_name on graph_entities(entity_name)")
+        conn.execute(
+            """
+create table if not exists graph_risks(
+ id integer primary key autoincrement,
+ risk_id text unique,
+ title text not null,
+ risk_type text not null,
+ level text not null default 'unknown',
+ object_type text,
+ object_id integer,
+ related_entities text,
+ evidence text,
+ recommendation text,
+ status text not null default 'open',
+ created_by integer,
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_graph_risks_type on graph_risks(risk_type)")
+        conn.execute("create index if not exists idx_graph_risks_level on graph_risks(level)")
         admin_email = os.environ.get("PORTAL_ADMIN_EMAIL", "vafox@126.com").strip().lower()
         existing_admin = conn.execute("select id from users where role='admin' limit 1").fetchone()
         if not existing_admin:
@@ -860,6 +914,8 @@ class App(BaseHTTPRequestHandler):
             return self.memory_view(user)
         if path == "/decisions":
             return self.decision_memory(user)
+        if path == "/graph":
+            return self.graph_center(user)
         if path == "/system/health":
             return self.system_health(user)
         if path == "/content-center":
@@ -898,6 +954,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_automation_get(user, path)
         if path.startswith("/api/memory") or path.startswith("/api/preferences") or path.startswith("/api/decisions"):
             return self.api_memory_get(user, path)
+        if path.startswith("/api/graph"):
+            return self.api_graph_get(user, path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_get(user, path)
         if path.startswith("/api/sap/"):
@@ -932,6 +990,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_automation_post(self.current_user(), path)
         if path.startswith("/api/memory") or path.startswith("/api/preferences") or path.startswith("/api/decisions"):
             return self.api_memory_post(self.current_user(), path)
+        if path.startswith("/api/graph"):
+            return self.api_graph_post(self.current_user(), path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_post(self.current_user(), path)
         if path.startswith("/api/"):
@@ -968,6 +1028,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_task005_post(self.current_user(), path)
         if path.startswith("/api/memory") or path.startswith("/api/preferences"):
             return self.api_memory_post(self.current_user(), path)
+        if path.startswith("/api/graph"):
+            return self.api_graph_post(self.current_user(), path)
         return self.json_out({"ok": False, "message": "unsupported"}, code=404)
 
     def seed_workflow_templates(self, conn, user_id=None):
@@ -1840,6 +1902,7 @@ class App(BaseHTTPRequestHandler):
             self.card(U(r"\u4efb\u52a1\u4e2d\u5fc3"), U(r"\u4eca\u65e5\u5f85\u529e\u3001\u95e8\u5e97\u4efb\u52a1\u3001\u81ea\u52a8\u5316\u4efb\u52a1\u548c\u8ddf\u8fdb\u63d0\u9192\u3002"), "/tasks", "btn", True),
             self.card(U(r"AI \u81ea\u52a8\u5316"), U(r"\u6d41\u7a0b\u6a21\u677f\u3001\u89e6\u53d1\u5668\u3001AI \u52a8\u4f5c\u3001\u6267\u884c\u5386\u53f2\u548c\u901a\u77e5\u4e2d\u5fc3\u3002"), "/automation", "btn", can_manager),
             self.card(U(r"AI \u8bb0\u5fc6\u4e2d\u5fc3"), U(r"\u957f\u671f\u7ecf\u8425\u539f\u5219\u3001\u51b3\u7b56\u3001\u504f\u597d\u3001\u5b9a\u4ef7\u548c\u98ce\u9669\u8bb0\u5fc6\u3002"), "/memory", "btn", True),
+            self.card(U(r"\u4f01\u4e1a\u77e5\u8bc6\u56fe\u8c31"), U(r"\u8fde\u63a5\u95e8\u5e97\u3001\u54c1\u724c\u3001\u4ea7\u54c1\u3001\u77e5\u8bc6\u3001\u8bb0\u5fc6\u3001\u4efb\u52a1\u548c\u98ce\u9669\u3002"), "/graph", "btn green", can_manager),
             self.card(U(r"\u7cfb\u7edf\u7ba1\u7406"), U(r"\u5ba1\u6838\u5458\u5de5\u3001\u7981\u7528\u8d26\u53f7\u3001\u4fee\u6539\u89d2\u8272\u548c\u91cd\u7f6e\u5bc6\u7801\u3002"), "/admin", "btn dark", can_admin),
         ]
         info = '<div class="panel"><strong>{}</strong><p class="small">{}：{} ｜ {}：{} ｜ {}：{}</p></div>'.format(
@@ -2716,7 +2779,8 @@ class App(BaseHTTPRequestHandler):
         checks["research_engine_status"] = "placeholder"
         checks["automation_engine_status"] = "ready"
         checks["memory_engine_status"] = "ready"
-        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task007", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
+        checks["knowledge_graph_status"] = "ready"
+        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task008", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
 
     def api_health(self):
         return self.json_out(self.health_payload())
@@ -3230,6 +3294,219 @@ class App(BaseHTTPRequestHandler):
                 )
             return self.json_out({"ok": True, "decision_id": cur.lastrowid})
         return self.json_out({"ok": False, "message": "unknown memory api"}, code=404)
+
+    def can_view_graph(self, user):
+        return bool(user)
+
+    def can_manage_graph(self, user):
+        return bool(user and user["role"] in ("boss", "admin", "store_manager", "purchasing", "finance"))
+
+    def entity_to_json(self, row):
+        return row_dict(row) or {}
+
+    def relationship_to_json(self, row):
+        data = row_dict(row) or {}
+        data["source_entity_type"] = data.get("source_entity_type") or data.get("from_type")
+        data["source_entity_id"] = data.get("source_entity_id") or data.get("from_id")
+        data["target_entity_type"] = data.get("target_entity_type") or data.get("to_type")
+        data["target_entity_id"] = data.get("target_entity_id") or data.get("to_id")
+        return data
+
+    def ensure_graph_entity(self, conn, entity_type, entity_key, entity_name, description="", source_type="", source_id="", user_id=None):
+        row = conn.execute("select * from graph_entities where entity_type=? and entity_key=?", (entity_type, entity_key)).fetchone()
+        now = ts()
+        if row:
+            conn.execute("update graph_entities set entity_name=?, description=coalesce(?,description), updated_at=? where id=?", (entity_name, description, now, row["id"]))
+            return row["id"]
+        cur = conn.execute(
+            "insert into graph_entities(entity_id,entity_type,entity_key,entity_name,description,source_type,source_id,status,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?)",
+            ("ENT-" + uuid.uuid4().hex[:10], entity_type, entity_key, entity_name, description, source_type, source_id, "active", user_id, now, now),
+        )
+        return cur.lastrowid
+
+    def create_graph_relationship(self, conn, src_type, src_id, dst_type, dst_id, relationship_type, description="", evidence_type="", evidence_id=None, user_id=None):
+        if not src_type or not dst_type or not src_id or not dst_id:
+            return None
+        existing = conn.execute(
+            "select id from relations where source_entity_type=? and source_entity_id=? and target_entity_type=? and target_entity_id=? and relationship_type=?",
+            (src_type, src_id, dst_type, dst_id, relationship_type),
+        ).fetchone()
+        now = ts()
+        if existing:
+            conn.execute("update relations set updated_at=?, description=coalesce(?,description) where id=?", (now, description, existing["id"]))
+            return existing["id"]
+        cur = conn.execute(
+            """insert into relations(
+ relationship_id,from_type,from_id,to_type,to_id,source_entity_type,source_entity_id,target_entity_type,target_entity_id,
+ relation_type,relationship_type,strength,confidence,direction,description,evidence_type,evidence_id,created_by,created_at,updated_at
+) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            ("REL-" + uuid.uuid4().hex[:10], src_type, src_id, dst_type, dst_id, src_type, src_id, dst_type, dst_id, relationship_type, relationship_type, "normal", "medium", "directed", description, evidence_type, evidence_id, user_id, now, now),
+        )
+        return cur.lastrowid
+
+    def run_graph_extraction(self, user=None):
+        created = {"entities": 0, "relationships": 0, "risks": 0}
+        with db() as conn:
+            before_entities = conn.execute("select count(*) c from graph_entities").fetchone()["c"]
+            before_rels = conn.execute("select count(*) c from relations where relationship_id is not null").fetchone()["c"]
+            for row in conn.execute("select * from records where status!='deleted'").fetchall():
+                eid = self.ensure_graph_entity(conn, row["module"], f"record:{row['id']}", row["title"], row["summary"] or "", "record", str(row["id"]), user["id"] if user else None)
+                if row["module"] == "products":
+                    data = safe_json(row["data_json"], {})
+                    brand = data.get(U(r"\u54c1\u724c")) or data.get("brand")
+                    if brand:
+                        bid = self.ensure_graph_entity(conn, "brand", "brand:" + str(brand).lower(), str(brand), "", "record_text", str(row["id"]), user["id"] if user else None)
+                        self.create_graph_relationship(conn, "product", eid, "brand", bid, "belongs_to", U(r"\u4ece\u4ea7\u54c1\u6863\u6848\u54c1\u724c\u5b57\u6bb5\u63d0\u53d6"), "record", row["id"], user["id"] if user else None)
+                if row["module"] == "employees":
+                    data = safe_json(row["data_json"], {})
+                    store = data.get(U(r"\u90e8\u95e8")) or data.get(U(r"\u95e8\u5e97")) or data.get("store")
+                    if store:
+                        sid = self.ensure_graph_entity(conn, "store", "store:" + str(store).lower(), str(store), "", "record_text", str(row["id"]), user["id"] if user else None)
+                        self.create_graph_relationship(conn, "employee", eid, "store", sid, "works_at", U(r"\u4ece\u5458\u5de5\u6863\u6848\u95e8\u5e97/\u90e8\u95e8\u5b57\u6bb5\u63d0\u53d6"), "record", row["id"], user["id"] if user else None)
+            for row in conn.execute("select * from knowledge_items order by updated_at desc limit 500").fetchall():
+                kid = self.ensure_graph_entity(conn, "knowledge", f"knowledge:{row['id']}", row["title"], row["summary"] or row["ai_summary"] or "", "knowledge", str(row["id"]), user["id"] if user else None)
+                if row["object_type"] and row["object_id"]:
+                    oid = self.ensure_graph_entity(conn, row["object_type"], f"{row['object_type']}:{row['object_id']}", f"{row['object_type']} #{row['object_id']}", "", "knowledge_relation", str(row["id"]), user["id"] if user else None)
+                    self.create_graph_relationship(conn, "knowledge", kid, row["object_type"], oid, "documented_by", U(r"\u4ece\u77e5\u8bc6\u6761\u76ee\u5173\u8054\u5bf9\u8c61\u63d0\u53d6"), "knowledge", row["id"], user["id"] if user else None)
+            for row in conn.execute("select * from memories where status='approved'").fetchall():
+                mid = self.ensure_graph_entity(conn, "memory", f"memory:{row['id']}", row["title"], row["content"] or "", "memory", str(row["id"]), user["id"] if user else None)
+                if row["object_type"] and row["object_id"]:
+                    oid = self.ensure_graph_entity(conn, row["object_type"], f"{row['object_type']}:{row['object_id']}", f"{row['object_type']} #{row['object_id']}", "", "memory_relation", str(row["id"]), user["id"] if user else None)
+                    self.create_graph_relationship(conn, "memory", mid, row["object_type"], oid, "affects", U(r"\u4ece\u5df2\u5ba1\u6838\u8bb0\u5fc6\u5173\u8054\u5bf9\u8c61\u63d0\u53d6"), "memory", row["id"], user["id"] if user else None)
+            for row in conn.execute("select * from tasks").fetchall():
+                tid = self.ensure_graph_entity(conn, "task", f"task:{row['id']}", row["title"], row["description"] or "", "task", str(row["id"]), user["id"] if user else None)
+                if row["related_object_type"] and row["related_object_id"]:
+                    oid = self.ensure_graph_entity(conn, row["related_object_type"], f"{row['related_object_type']}:{row['related_object_id']}", f"{row['related_object_type']} #{row['related_object_id']}", "", "task_relation", str(row["id"]), user["id"] if user else None)
+                    self.create_graph_relationship(conn, "task", tid, row["related_object_type"], oid, "related_to", U(r"\u4ece\u4efb\u52a1\u5173\u8054\u5bf9\u8c61\u63d0\u53d6"), "task", row["id"], user["id"] if user else None)
+            after_entities = conn.execute("select count(*) c from graph_entities").fetchone()["c"]
+            after_rels = conn.execute("select count(*) c from relations where relationship_id is not null").fetchone()["c"]
+            created["entities"] = after_entities - before_entities
+            created["relationships"] = after_rels - before_rels
+        self.log_action(user, "graph_extraction_run", "graph", None, json.dumps(created, ensure_ascii=False))
+        return created
+
+    def graph_summary(self):
+        with db() as conn:
+            entity_count = conn.execute("select count(*) c from graph_entities").fetchone()["c"]
+            relationship_count = conn.execute("select count(*) c from relations where relationship_id is not null or source_entity_type is not null").fetchone()["c"]
+            risk_count = conn.execute("select count(*) c from graph_risks").fetchone()["c"]
+            entities = conn.execute("select * from graph_entities order by updated_at desc limit 40").fetchall()
+            relationships = conn.execute("select * from relations where relationship_id is not null or source_entity_type is not null order by created_at desc limit 40").fetchall()
+            risks = conn.execute("select * from graph_risks order by updated_at desc limit 40").fetchall()
+            by_type = conn.execute("select entity_type, count(*) c from graph_entities group by entity_type order by c desc limit 10").fetchall()
+        return {"entity_count": entity_count, "relationship_count": relationship_count, "risk_count": risk_count, "entities": entities, "relationships": relationships, "risks": risks, "by_type": by_type}
+
+    def graph_center(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        if not self.can_view_graph(user):
+            return self.dashboard(user)
+        q = parse_qs(urlparse(self.path).query).get("q", [""])[0].strip()
+        data = self.graph_summary()
+        entity_cards = ""
+        entities = data["entities"]
+        if q:
+            ql = q.lower()
+            entities = [e for e in entities if ql in (e["entity_name"] or "").lower() or ql in (e["entity_type"] or "").lower()]
+        for e in entities[:12]:
+            connected = 0
+            with db() as conn:
+                connected = conn.execute("select count(*) c from relations where (source_entity_type=? and source_entity_id=?) or (target_entity_type=? and target_entity_id=?) or (from_type=? and from_id=?) or (to_type=? and to_id=?)", (e["entity_type"], e["id"], e["entity_type"], e["id"], e["entity_type"], e["id"], e["entity_type"], e["id"])).fetchone()["c"]
+            entity_cards += "<div class='card'><div><h2>{}</h2><p>{}</p><p class='small'>{} · {} connections</p></div><a class='btn full' href='/api/graph/entity-network?id={}'>{}</a></div>".format(esc(e["entity_name"]), esc(e["description"]), esc(e["entity_type"]), connected, e["id"], U(r"查看网络 JSON"))
+        if not entity_cards:
+            entity_cards = "<div class='panel'>{}</div>".format(self.empty_state(U(r"\u6682\u65e0\u56fe\u8c31\u5b9e\u4f53\uff0c\u53ef\u5148\u8fd0\u884c\u89c4\u5219\u62bd\u53d6\u3002")))
+        rel_items = []
+        for r in data["relationships"][:12]:
+            rel = self.relationship_to_json(r)
+            rel_items.append(f"{rel.get('source_entity_type')} #{rel.get('source_entity_id')} -> {rel.get('target_entity_type')} #{rel.get('target_entity_id')} / {rel.get('relationship_type') or rel.get('relation_type')}")
+        risk_items = [f"{r['title']} · {r['risk_type']} · {r['level']}" for r in data["risks"][:10]] or [U(r"\u6682\u65e0\u98ce\u9669\u8bb0\u5f55\uff0c\u4e0d\u4f1a\u4f2a\u9020\u98ce\u9669\u503c\u3002")]
+        type_pills = "".join("<span class='pill'>{} {}</span>".format(esc(r["entity_type"]), r["c"]) for r in data["by_type"])
+        body = f"""
+<div class="panel">
+  <h2>{U(r'\u4f01\u4e1a\u77e5\u8bc6\u56fe\u8c31')}</h2>
+  <p class="small">{U(r'\u628a\u95e8\u5e97\u3001\u5458\u5de5\u3001\u54c1\u724c\u3001\u4ea7\u54c1\u3001\u4f9b\u5e94\u5546\u3001\u77e5\u8bc6\u3001\u8bb0\u5fc6\u3001\u4efb\u52a1\u548c\u98ce\u9669\u8fde\u6210\u53ef\u7406\u89e3\u7684\u5173\u7cfb\u7f51\u3002')}</p>
+  <div class="metrics">{self.metric(U(r'\u5b9e\u4f53'), data['entity_count'], U(r'\u5bf9\u8c61'))}{self.metric(U(r'\u5173\u7cfb'), data['relationship_count'], U(r'\u8fde\u63a5'))}{self.metric(U(r'\u98ce\u9669'), data['risk_count'], U(r'\u8bb0\u5f55'))}</div>
+  <form method="get" action="/graph"><label>{U(r'\u56fe\u8c31\u641c\u7d22')}</label><input name="q" value="{esc(q)}" placeholder="{U(r'\u641c\u7d22\u5b9e\u4f53\u3001\u7c7b\u578b\u3001\u98ce\u9669\u5173\u952e\u8bcd')}"><p><button>{U(r'\u641c\u7d22')}</button></p></form>
+  <form method="post" action="/api/graph/extract"><button class="dark">{U(r'\u8fd0\u884c\u89c4\u5219\u62bd\u53d6')}</button></form>
+  <div>{type_pills}</div>
+</div>
+<div class="split"><div class="panel"><h2>{U(r'\u98ce\u9669\u5730\u56fe')}</h2>{self.bullets(risk_items)}<p><a class="btn" href="/api/graph/risk-map">{U(r'\u98ce\u9669\u5730\u56fe JSON')}</a></p></div><div class="panel"><h2>{U(r'Osprey \u98ce\u9669\u56fe\u8c31')}</h2>{self.bullets([U(r'\u54c1\u724c\uff1aOsprey'), U(r'\u5b9a\u4ef7\u98ce\u9669'), U(r'\u8fd4\u70b9\u4e0d\u786e\u5b9a'), U(r'\u76f8\u5173\u4efb\u52a1/\u6587\u6863/\u51b3\u7b56\u5f85\u63a5\u5165')])}<p><a class="btn" href="/api/graph/osprey-risk">{U(r'Osprey \u56fe\u8c31 JSON')}</a></p></div></div>
+<div class="panel"><h2>{U(r'\u5b9e\u4f53\u6d4f\u89c8')}</h2><div class="grid">{entity_cards}</div></div>
+<div class="panel"><h2>{U(r'\u5173\u7cfb\u6d4f\u89c8')}</h2>{self.bullets(rel_items or [U(r'\u6682\u65e0\u5173\u7cfb\uff0c\u8bf7\u5148\u8fd0\u884c\u62bd\u53d6\u6216\u624b\u52a8\u5efa\u7acb\u3002')])}</div>
+<div class="panel"><h2>{U(r'AI \u67e5\u8be2\u56fe\u8c31\u4e0a\u4e0b\u6587')}</h2>{self.bullets([U(r'\u68c0\u7d22\u76f8\u5173\u5b9e\u4f53'), U(r'\u68c0\u7d22\u76f8\u5173\u5173\u7cfb'), U(r'\u68c0\u7d22\u8bc1\u636e'), U(r'\u7ec4\u5408\u4e0a\u4e0b\u6587'), U(r'\u5e26\u5f15\u7528\u56de\u7b54')])}</div>"""
+        self.out(layout(U(r"\u4f01\u4e1a\u77e5\u8bc6\u56fe\u8c31"), body, user=user, wide=True))
+
+    def api_graph_get(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if not self.can_view_graph(user):
+            return self.json_out({"ok": False, "message": "no permission"}, code=403)
+        if path == "/api/graph":
+            data = self.graph_summary()
+            return self.json_out({"ok": True, "dashboard": {"entities": data["entity_count"], "relationships": data["relationship_count"], "risks": data["risk_count"]}})
+        if path == "/api/graph/entities":
+            with db() as conn:
+                rows = conn.execute("select * from graph_entities order by updated_at desc limit 200").fetchall()
+            return self.json_out({"ok": True, "entities": [self.entity_to_json(r) for r in rows]})
+        m = re.match(r"^/api/graph/entities/(\d+)$", path)
+        if m:
+            with db() as conn:
+                row = conn.execute("select * from graph_entities where id=?", (m.group(1),)).fetchone()
+            return self.json_out({"ok": bool(row), "entity": self.entity_to_json(row)})
+        if path == "/api/graph/relationships":
+            with db() as conn:
+                rows = conn.execute("select * from relations where relationship_id is not null or source_entity_type is not null order by created_at desc limit 200").fetchall()
+            return self.json_out({"ok": True, "relationships": [self.relationship_to_json(r) for r in rows]})
+        if path == "/api/graph/search":
+            q = parse_qs(urlparse(self.path).query).get("q", [""])[0].strip()
+            like = "%" + q + "%"
+            with db() as conn:
+                rows = conn.execute("select * from graph_entities where entity_name like ? or entity_type like ? or description like ? order by updated_at desc limit 100", (like, like, like)).fetchall()
+            return self.json_out({"ok": True, "entities": [self.entity_to_json(r) for r in rows]})
+        if path == "/api/graph/entity-network":
+            eid = parse_qs(urlparse(self.path).query).get("id", [""])[0]
+            with db() as conn:
+                entity = conn.execute("select * from graph_entities where id=?", (eid,)).fetchone()
+                rels = conn.execute("select * from relations where source_entity_id=? or target_entity_id=? or from_id=? or to_id=? order by created_at desc limit 80", (eid, eid, eid, eid)).fetchall()
+            return self.json_out({"ok": bool(entity), "entity": self.entity_to_json(entity), "relationships": [self.relationship_to_json(r) for r in rels]})
+        if path == "/api/graph/risk-map":
+            with db() as conn:
+                rows = conn.execute("select * from graph_risks order by case level when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end, updated_at desc limit 200").fetchall()
+            return self.json_out({"ok": True, "risks": [row_dict(r) for r in rows], "message": U(r"\u6ca1\u6709\u771f\u5b9e\u8bb0\u5f55\u65f6\u4e0d\u4f2a\u9020\u98ce\u9669\u503c\u3002")})
+        if path == "/api/graph/osprey-risk":
+            return self.json_out({"ok": True, "brand": "Osprey", "nodes": ["Brand: Osprey", "Pricing risk", "Decision memory", "Research observation", "Inventory", "Supplier / agency", "Rebate uncertainty", "Tasks", "Documents", "AI suggestions"], "message": U(r"\u7ed3\u6784\u5360\u4f4d\uff1a\u4ec5\u663e\u793a\u5df2\u5f55\u5165\u6216\u5df2\u5173\u8054\u7684\u4fe1\u606f\uff0c\u4e0d\u58f0\u660e\u771f\u5b9e\u8d22\u52a1\u6570\u636e\u3002")})
+        return self.json_out({"ok": False, "message": "unknown graph api"}, code=404)
+
+    def api_graph_post(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if not self.can_manage_graph(user):
+            return self.json_out({"ok": False, "message": "no permission"}, code=403)
+        form = self.form()
+        now = ts()
+        if path == "/api/graph/entities":
+            with db() as conn:
+                eid = self.ensure_graph_entity(conn, form.get("entity_type", "unknown"), form.get("entity_key", "manual:" + uuid.uuid4().hex[:8]), form.get("entity_name", U(r"\u672a\u547d\u540d\u5b9e\u4f53")), form.get("description", ""), form.get("source_type", "manual"), form.get("source_id", ""), user["id"])
+            self.log_action(user, "graph_entity_created", "graph_entity", eid, form.get("entity_name", ""))
+            return self.json_out({"ok": True, "entity_id": eid})
+        if path == "/api/graph/relationships":
+            with db() as conn:
+                rid = self.create_graph_relationship(conn, form.get("source_entity_type"), form.get("source_entity_id"), form.get("target_entity_type"), form.get("target_entity_id"), form.get("relationship_type", "related_to"), form.get("description", ""), form.get("evidence_type", ""), int(form.get("evidence_id")) if str(form.get("evidence_id", "")).isdigit() else None, user["id"])
+            self.log_action(user, "graph_relationship_created", "graph_relationship", rid, form.get("relationship_type", ""))
+            return self.json_out({"ok": True, "relationship_id": rid})
+        if path == "/api/graph/extract":
+            result = self.run_graph_extraction(user)
+            return self.json_out({"ok": True, "result": result, "message": U(r"\u53ea\u4ece\u5df2\u6709\u660e\u786e\u5b57\u6bb5\u548c\u7528\u6237\u5173\u8054\u62bd\u53d6\uff0c\u4e0d\u7f16\u9020\u4e8b\u5b9e\u3002")})
+        if path == "/api/graph/risk-map":
+            with db() as conn:
+                cur = conn.execute(
+                    "insert into graph_risks(risk_id,title,risk_type,level,object_type,object_id,related_entities,evidence,recommendation,status,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("RISK-" + uuid.uuid4().hex[:10], form.get("title", U(r"\u672a\u547d\u540d\u98ce\u9669")), form.get("risk_type", "unknown"), form.get("level", "unknown"), form.get("object_type", ""), int(form.get("object_id")) if str(form.get("object_id", "")).isdigit() else None, form.get("related_entities", ""), form.get("evidence", ""), form.get("recommendation", ""), form.get("status", "open"), user["id"], now, now),
+                )
+            self.log_action(user, "graph_risk_created", "graph_risk", cur.lastrowid, form.get("title", ""))
+            return self.json_out({"ok": True, "risk_id": cur.lastrowid})
+        return self.json_out({"ok": False, "message": "unknown graph api"}, code=404)
 
 
 if __name__ == "__main__":

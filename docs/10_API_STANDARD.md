@@ -79,6 +79,22 @@ Automation APIs return safe placeholders when n8n, Dify, Enterprise WeChat, SMS,
 
 New memories default to `pending_review`. AI must not create approved permanent memory without human review.
 
+## Task008 Knowledge Graph API
+
+- `GET /api/graph`
+- `GET /api/graph/entities`
+- `POST /api/graph/entities`
+- `GET /api/graph/entities/{id}`
+- `GET /api/graph/relationships`
+- `POST /api/graph/relationships`
+- `GET /api/graph/search`
+- `GET /api/graph/entity-network`
+- `GET /api/graph/risk-map`
+- `GET /api/graph/osprey-risk`
+- `POST /api/graph/extract`
+
+Graph APIs must not invent relationships, risk values or financial facts.
+
 ## Future API
 
 - `POST /api/files/parse`
