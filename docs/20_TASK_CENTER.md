@@ -46,3 +46,13 @@ AI Suggestion -> Create Task -> Assign Owner -> Set Due Date -> Track Progress -
 ## Task009 Agent Tasks
 
 Agent tasks are separate from employee tasks. They represent AI analysis or recommendation work and require human review before changing business state or creating employee-facing tasks.
+
+## Task010 Jarvis Task Suggestions
+
+Jarvis can recognize `task_creation` intent and create a pending action suggestion.
+
+Flow:
+
+Jarvis question -> Intent router -> Suggested action -> Human confirmation -> Task Center execution
+
+In V1, Jarvis records the suggested action and requires a manager, boss or admin to confirm/cancel. This prevents accidental task creation from casual chat.

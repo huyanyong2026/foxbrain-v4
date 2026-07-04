@@ -129,9 +129,23 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - Osprey multi-agent scenario template
 - Health check now reports multi-agent engine status
 
+## V4 Task010 Completed
+
+- FoxBrain Jarvis unified AI assistant entrance
+- Chat-style mobile-first interface
+- Conversation and message persistence
+- Keyword intent router
+- Safe tool adapter layer for business, SAP, knowledge, memory, graph, agents, tasks and reports
+- Citation-ready answer payload
+- Human confirmation flow for important actions
+- Report generation placeholder
+- Voice input placeholder
+- Health check now reports Jarvis status
+
 ## V4 Routes
 
 - `/`
+- `/jarvis`
 - `/business-overview`
 - `/stores`
 - `/employees`
@@ -182,6 +196,15 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - `GET /api/agents/roles`
 - `GET /api/agents/tasks`
 - `GET /api/agents/tools`
+- `GET /api/jarvis/status`
+- `GET /api/jarvis/suggestions`
+- `GET /api/jarvis/conversations`
+- `GET /api/jarvis/conversations/{id}`
+- `POST /api/jarvis/conversations`
+- `POST /api/jarvis/message`
+- `POST /api/jarvis/route-intent`
+- `POST /api/jarvis/action/confirm`
+- `POST /api/jarvis/report`
 
 ## Security
 

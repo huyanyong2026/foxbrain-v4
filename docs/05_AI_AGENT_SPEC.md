@@ -73,3 +73,18 @@ AI agents now have structured enterprise roles and can collaborate through:
 - Human review gates
 
 No agent may execute a business-changing action without human approval.
+
+## Task010 FoxBrain Jarvis
+
+Jarvis is the single AI assistant entrance above the agent matrix.
+
+Jarvis responsibilities:
+
+- Receive the user's natural-language question.
+- Route the question to a safe intent.
+- Call existing engines through adapters.
+- Return answer, confidence, sources, related objects, limitations and next actions.
+- Suggest actions without executing important changes directly.
+- Hand off complex questions to Multi-Agent Collaboration when needed.
+
+Jarvis V1 uses keyword routing. Later versions can replace routing and response generation with Dify, DeepSeek, OpenAI or another approved model while keeping the same safety and citation payload.

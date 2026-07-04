@@ -112,6 +112,22 @@ Graph APIs must not invent relationships, risk values or financial facts.
 
 Agent APIs must not fake conclusions. Business-changing actions require human review.
 
+## Task010 FoxBrain Jarvis API
+
+- `GET /api/jarvis/status`
+- `GET /api/jarvis/suggestions`
+- `GET /api/jarvis/conversations`
+- `POST /api/jarvis/conversations`
+- `GET /api/jarvis/conversations/{id}`
+- `POST /api/jarvis/message`
+- `POST /api/jarvis/route-intent`
+- `POST /api/jarvis/action/confirm`
+- `POST /api/jarvis/report`
+
+Jarvis APIs return citation-ready payloads with `intent`, `answer`, `confidence`, `tool_calls`, `cited_sources`, `related_objects`, `limitations`, and `next_actions`.
+
+Jarvis must not invent SAP data, finance results, customer facts, market news, or official reports. Important actions require human confirmation.
+
 ## Future API
 
 - `POST /api/files/parse`

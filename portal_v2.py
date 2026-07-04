@@ -837,6 +837,57 @@ create table if not exists agent_tools(
 """
         )
         conn.execute("create index if not exists idx_agent_tools_status on agent_tools(status)")
+        conn.execute(
+            """
+create table if not exists jarvis_conversations(
+ id integer primary key autoincrement,
+ conversation_id text unique,
+ user_id integer not null,
+ title text not null,
+ status text not null default 'active',
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_jarvis_conversations_user on jarvis_conversations(user_id, updated_at)")
+        conn.execute(
+            """
+create table if not exists jarvis_messages(
+ id integer primary key autoincrement,
+ message_id text unique,
+ conversation_id integer not null,
+ role text not null,
+ content text,
+ intent text,
+ tool_calls text,
+ cited_sources text,
+ related_objects text,
+ confidence text,
+ created_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_jarvis_messages_conversation on jarvis_messages(conversation_id, created_at)")
+        conn.execute(
+            """
+create table if not exists jarvis_action_confirmations(
+ id integer primary key autoincrement,
+ action_id text unique,
+ conversation_id integer,
+ action_type text not null,
+ title text not null,
+ reason text,
+ payload_json text,
+ status text not null default 'pending',
+ created_by integer,
+ decided_by integer,
+ created_at integer not null,
+ decided_at integer
+)
+"""
+        )
+        conn.execute("create index if not exists idx_jarvis_actions_status on jarvis_action_confirmations(status)")
         admin_email = os.environ.get("PORTAL_ADMIN_EMAIL", "vafox@126.com").strip().lower()
         existing_admin = conn.execute("select id from users where role='admin' limit 1").fetchone()
         if not existing_admin:
@@ -876,11 +927,12 @@ h1{{font-size:30px;margin:8px 0 6px}}h2{{font-size:20px;margin:0 0 12px}}p,.lead
 .split{{display:grid;grid-template-columns:1fr 1fr;gap:14px}}.list{{margin:0;padding-left:20px;line-height:1.85}}.pill{{display:inline-block;border:1px solid #ddd7cc;border-radius:999px;padding:7px 10px;margin:3px 5px 3px 0;background:#fff;font-weight:700;color:#333;text-decoration:none}}
 .store-row{{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:8px;border-top:1px solid #eee;padding:10px 0}}.store-row:first-child{{border-top:0}}
 .card h2{{margin-bottom:4px}}.card p{{color:#555;margin:0 0 18px}}.disabled{{opacity:.55}}
+.chat-shell{{display:grid;grid-template-columns:2fr 1fr;gap:14px;align-items:start}}.chat-message{{border:1px solid #e4ded2;border-radius:8px;padding:14px;margin:10px 0;background:#fff}}.chat-message.user{{background:#f2f6ff;border-color:#cad8ff}}.chat-message.assistant{{background:#fbfaf7}}.chat-input{{position:sticky;bottom:0;background:#f6f3ed;padding:10px 0 4px;border-top:1px solid #e5ded2}}.chipbar{{display:flex;gap:8px;overflow:auto;padding:4px 0 8px}}.chipbar button{{white-space:nowrap;width:auto;background:#fff;color:#1849a9;border:1px solid #cfd8ef}}.source-item{{border-top:1px solid #eee;padding:9px 0}}.confidence{{display:inline-block;border-radius:999px;background:#eef4ff;color:#1849a9;padding:5px 9px;font-weight:800}}
 label{{display:block;font-weight:800;margin:12px 0 7px}}input,select,textarea{{width:100%;padding:14px;border:1px solid #cfc8bb;border-radius:8px;font-size:16px;background:#fff}}textarea{{min-height:120px;font-family:inherit}}
 button,.btn{{display:inline-block;border:0;border-radius:8px;background:#1849a9;color:#fff;text-decoration:none;font-weight:800;padding:13px 16px;cursor:pointer;font-size:16px;text-align:center}}
 .btn.full{{width:100%}}.red{{background:#ad1f15}}.green{{background:#18704c}}.dark{{background:#222}}.gray{{background:#777}}.orange{{background:#b45f06}}
 .alert{{padding:12px;background:#fff7d6;border:1px solid #ecd27a;border-radius:8px;margin:12px 0}}table{{width:100%;border-collapse:collapse}}th,td{{border-bottom:1px solid #eee;padding:10px;text-align:left;vertical-align:top}}th{{white-space:nowrap}}.inline{{display:flex;gap:8px;align-items:center;flex-wrap:wrap}}.inline form{{display:inline}}.small{{font-size:13px;color:#666}}
-@media(max-width:820px){{main{{width:calc(100% - 18px);padding-top:10px}}h1{{font-size:26px}}.grid,.metrics,.split{{grid-template-columns:1fr;gap:12px}}.store-row{{grid-template-columns:1fr}}.card{{min-height:132px}}.btn,button{{width:100%;padding:15px}}.topbar{{align-items:flex-start;flex-direction:column}}.topbar a{{margin:0 12px 0 0}}table,tbody,tr,td,th{{display:block}}thead{{display:none}}tr{{border:1px solid #eee;border-radius:8px;margin:10px 0;padding:8px;background:#fff}}td{{border:0;padding:7px}}.inline{{display:block}}.inline form{{display:block;margin-top:8px}}}}
+@media(max-width:820px){{main{{width:calc(100% - 18px);padding-top:10px}}h1{{font-size:26px}}.grid,.metrics,.split,.chat-shell{{grid-template-columns:1fr;gap:12px}}.store-row{{grid-template-columns:1fr}}.card{{min-height:132px}}.btn,button{{width:100%;padding:15px}}.chipbar button{{width:auto}}.topbar{{align-items:flex-start;flex-direction:column}}.topbar a{{margin:0 12px 0 0}}table,tbody,tr,td,th{{display:block}}thead{{display:none}}tr{{border:1px solid #eee;border-radius:8px;margin:10px 0;padding:8px;background:#fff}}td{{border:0;padding:7px}}.inline{{display:block}}.inline form{{display:block;margin-top:8px}}}}
 </style></head><body><main>{nav}<section><h1>{esc(title)}</h1><p class="lead">{T['subtitle']}</p></section>{alert}{body}</main></body></html>"""
 
 
@@ -966,6 +1018,8 @@ class App(BaseHTTPRequestHandler):
             return self.ai_store_manager(user)
         if path in ("/ai-query", "/knowledge/query"):
             return self.ai_assistant(user)
+        if path == "/jarvis":
+            return self.jarvis_center(user)
         if path == "/agents":
             return self.agents(user)
         if path == "/agents/collaboration":
@@ -1042,6 +1096,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_graph_get(user, path)
         if path.startswith("/api/agents"):
             return self.api_agents_get(user, path)
+        if path.startswith("/api/jarvis"):
+            return self.api_jarvis_get(user, path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_get(user, path)
         if path.startswith("/api/sap/"):
@@ -1058,6 +1114,10 @@ class App(BaseHTTPRequestHandler):
             return self.task_save()
         if path == "/tasks/complete":
             return self.task_complete()
+        if path == "/jarvis/message":
+            return self.jarvis_message_post()
+        if path == "/jarvis/action":
+            return self.jarvis_action_post()
         if path == "/automation/save":
             return self.automation_save()
         if path == "/workflows/save":
@@ -1080,6 +1140,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_graph_post(self.current_user(), path)
         if path.startswith("/api/agents"):
             return self.api_agents_post(self.current_user(), path)
+        if path.startswith("/api/jarvis"):
+            return self.api_jarvis_post(self.current_user(), path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_post(self.current_user(), path)
         if path.startswith("/api/"):
@@ -2222,6 +2284,7 @@ class App(BaseHTTPRequestHandler):
         can_manager = role in ("boss", "admin", "store_manager", "purchasing", "finance")
         can_admin = role == "admin"
         cards = [
+            self.card("FoxBrain Jarvis", U(r"\u7edf\u4e00 AI \u603b\u7ba1\u5165\u53e3\uff1a\u76f4\u63a5\u95ee\u7ecf\u8425\u3001SAP\u3001\u77e5\u8bc6\u5e93\u3001\u4efb\u52a1\u548c\u667a\u80fd\u4f53\u534f\u540c\u3002"), "/jarvis", "btn", True),
             self.card(U(r"AI \u603b\u7ecf\u7406"), U(r"\u4eca\u5929\u516c\u53f8\u60c5\u51b5\u3001\u98ce\u9669\u63d0\u9192\u3001\u7ecf\u8425\u5efa\u8bae\u3002"), "/ai-ceo", "btn", can_boss),
             self.card(U(r"\u7ecf\u8425\u603b\u89c8"), U(r"\u9500\u552e\u3001\u5229\u6da6\u3001\u5e93\u5b58\u3001\u73b0\u91d1\u6d41\u3002"), "/business-overview", "btn dark", can_boss),
             self.card(U(r"\u95e8\u5e97\u4e2d\u5fc3"), U(r"\u5357\u5c71\u5e97\u3001\u632f\u5174\u5e97\u3001\u822a\u82d1\u5e97\u7b49\u95e8\u5e97\u6863\u6848\u3002"), "/stores", "btn green", can_manager),
@@ -2872,7 +2935,8 @@ class App(BaseHTTPRequestHandler):
         checks["memory_engine_status"] = "ready"
         checks["knowledge_graph_status"] = "ready"
         checks["multi_agent_engine_status"] = "ready"
-        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task009", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
+        checks["jarvis_status"] = "ready"
+        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task010", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
 
     def api_health(self):
         return self.json_out(self.health_payload())
@@ -3789,6 +3853,389 @@ class App(BaseHTTPRequestHandler):
             self.log_action(user, "agent_recommendation_generated", "agent_scenario", None, "osprey-pricing")
             return self.json_out({"ok": True, "scenario": scenario})
         return self.json_out({"ok": False, "message": "unknown agents api"}, code=404)
+
+    def can_use_jarvis(self, user):
+        return bool(user and user["status"] == "approved")
+
+    def can_confirm_jarvis_action(self, user):
+        return bool(user and user["role"] in ("boss", "admin", "store_manager"))
+
+    def jarvis_suggestions(self):
+        return {
+            "business": [
+                U(r"\u4eca\u5929\u516c\u53f8\u7ecf\u8425\u600e\u4e48\u6837\uff1f"),
+                U(r"\u672c\u6708\u9500\u552e\u548c\u6bdb\u5229\u600e\u4e48\u6837\uff1f"),
+                U(r"\u54ea\u4e2a\u95e8\u5e97\u9700\u8981\u5173\u6ce8\uff1f"),
+                U(r"\u54ea\u4e2a\u54c1\u724c\u5e93\u5b58\u538b\u529b\u6700\u5927\uff1f"),
+            ],
+            "brand": [
+                U(r"Osprey \u73b0\u5728\u5e94\u8be5\u600e\u4e48\u5904\u7406\uff1f"),
+                U(r"KAILAS \u6700\u8fd1\u8868\u73b0\u600e\u4e48\u6837\uff1f"),
+                U(r"Mammut \u662f\u5426\u9002\u5408\u52a0\u5927\u6295\u5165\uff1f"),
+            ],
+            "knowledge": [
+                U(r"\u5357\u5c71\u5e97\u79df\u8d41\u5408\u540c\u5728\u54ea\u91cc\uff1f"),
+                U(r"\u5458\u5de5\u57f9\u8bad\u8d44\u6599\u6709\u54ea\u4e9b\uff1f"),
+                U(r"\u54c1\u724c\u5408\u540c\u5728\u54ea\u91cc\uff1f"),
+            ],
+            "task": [
+                U(r"\u628a\u4eca\u5929\u7684\u98ce\u9669\u53d8\u6210\u4efb\u52a1\u3002"),
+                U(r"\u7ed9\u5357\u5c71\u5e97\u751f\u6210\u4e00\u4e2a\u63d0\u5347\u8ba1\u5212\u3002"),
+                U(r"\u751f\u6210 Osprey \u98ce\u9669\u5904\u7406\u4efb\u52a1\u3002"),
+            ],
+            "research": [
+                U(r"\u6700\u8fd1\u6237\u5916\u884c\u4e1a\u6709\u4ec0\u4e48\u53d8\u5316\uff1f"),
+                U(r"Osprey \u5916\u90e8\u4ef7\u683c\u6709\u4ec0\u4e48\u53d8\u5316\uff1f"),
+                U(r"KAILAS \u6709\u4ec0\u4e48\u65b0\u54c1\u52a8\u6001\uff1f"),
+            ],
+        }
+
+    def route_jarvis_intent(self, text):
+        q = (text or "").lower()
+        rules = [
+            ("task_creation", ["task", U(r"\u4efb\u52a1"), U(r"\u5b89\u6392"), U(r"\u8ddf\u8fdb")]),
+            ("report_generation", ["report", U(r"\u62a5\u544a"), U(r"\u65e5\u62a5"), U(r"\u5468\u62a5"), U(r"\u6708\u62a5")]),
+            ("sap_query", ["sap", "b1", U(r"\u9500\u552e"), U(r"\u6bdb\u5229"), U(r"\u5e93\u5b58"), U(r"\u95e8\u5e97")]),
+            ("knowledge_query", [U(r"\u77e5\u8bc6"), U(r"\u5408\u540c"), U(r"\u5236\u5ea6"), "sop", U(r"\u57f9\u8bad")]),
+            ("research_query", [U(r"\u5916\u90e8"), U(r"\u884c\u4e1a"), U(r"\u5e02\u573a"), U(r"\u65b0\u95fb"), U(r"\u4ef7\u683c")]),
+            ("memory_query", [U(r"\u8bb0\u5fc6"), U(r"\u539f\u5219"), U(r"\u504f\u597d"), U(r"\u51b3\u7b56")]),
+            ("graph_query", [U(r"\u56fe\u8c31"), U(r"\u5173\u8054"), U(r"\u5173\u7cfb")]),
+            ("agent_collaboration", [U(r"\u534f\u540c"), U(r"\u667a\u80fd\u4f53"), "agent", "cfo", "ceo"]),
+            ("business_query", [U(r"\u516c\u53f8"), U(r"\u7ecf\u8425"), U(r"\u600e\u4e48\u6837"), U(r"\u98ce\u9669")]),
+            ("content_generation", [U(r"\u5199"), U(r"\u6587\u6848"), U(r"\u5185\u5bb9"), U(r"\u8bdd\u672f")]),
+            ("system_help", [U(r"\u5e2e\u52a9"), U(r"\u600e\u4e48\u7528"), "help"]),
+        ]
+        for intent, words in rules:
+            if any(w.lower() in q for w in words):
+                return intent
+        return "general_question"
+
+    def jarvis_tool_result(self, user, intent, question):
+        result = {"success": True, "data": {}, "sources": [], "limitations": [], "next_actions": []}
+        if intent in ("business_query", "sap_query"):
+            data = self.cockpit_data()
+            result["data"] = {"metrics": data["metrics"], "ai_suggestions": data["ai_suggestions"][:5], "todos": data["todos"][:5]}
+            result["sources"].append({"type": "sap_summary", "title": U(r"SAP B1 \u540c\u6b65\u6458\u8981"), "url": "/sap-sync"})
+            if not data["has_data"]:
+                result["limitations"].append(data["empty_message"])
+            result["next_actions"] += [{"label": U(r"\u6253\u5f00\u7ecf\u8425\u9a7e\u9a76\u8231"), "url": "/business-overview"}]
+        if intent == "knowledge_query":
+            terms = [w for w in re.split(r"\s+", question or "") if w][:6] or [question]
+            rows = []
+            with db() as conn:
+                for term in terms:
+                    like = "%" + term + "%"
+                    rows.extend(conn.execute("select * from knowledge_items where title like ? or body like ? or summary like ? or tags like ? order by updated_at desc limit 5", (like, like, like, like)).fetchall())
+            seen = set()
+            items = []
+            for row in rows:
+                if row["id"] in seen or not self.can_view_knowledge(user, row):
+                    continue
+                seen.add(row["id"])
+                items.append({"id": row["id"], "title": row["title"], "summary": row["summary"] or row["ai_summary"] or summarize_text(row["body"], 120), "url": f"/knowledge/view?id={row['id']}"})
+            result["data"]["knowledge_items"] = items[:8]
+            result["sources"] += [{"type": "knowledge", "title": item["title"], "url": item["url"]} for item in items[:5]]
+            result["next_actions"].append({"label": U(r"\u6253\u5f00\u77e5\u8bc6\u4e2d\u5fc3"), "url": "/knowledge"})
+        if intent == "memory_query":
+            with db() as conn:
+                rows = conn.execute("select * from memories where status='approved' order by updated_at desc limit 8").fetchall()
+            memories = [{"id": r["id"], "title": r["title"], "content": summarize_text(r["content"], 140), "url": f"/memory/view?id={r['id']}"} for r in rows if self.can_view_memory(user, r)]
+            result["data"]["memories"] = memories
+            result["sources"] += [{"type": "memory", "title": m["title"], "url": m["url"]} for m in memories[:5]]
+            result["next_actions"].append({"label": U(r"\u6253\u5f00 AI \u8bb0\u5fc6\u4e2d\u5fc3"), "url": "/memory"})
+        if intent == "graph_query":
+            with db() as conn:
+                entities = conn.execute("select * from graph_entities order by updated_at desc limit 8").fetchall()
+                risks = conn.execute("select * from graph_risks order by updated_at desc limit 5").fetchall()
+            result["data"]["entities"] = [row_dict(r) for r in entities]
+            result["data"]["risks"] = [row_dict(r) for r in risks]
+            result["sources"].append({"type": "graph", "title": U(r"\u4f01\u4e1a\u77e5\u8bc6\u56fe\u8c31"), "url": "/graph"})
+            result["next_actions"].append({"label": U(r"\u6253\u5f00\u77e5\u8bc6\u56fe\u8c31"), "url": "/graph"})
+        if intent == "agent_collaboration":
+            data = self.agent_summary()
+            result["data"] = {"roles": len(data["roles"]), "tasks": len(data["tasks"]), "tools": len(data["tools"])}
+            result["sources"].append({"type": "agents", "title": U(r"\u591a\u667a\u80fd\u4f53\u534f\u540c"), "url": "/agents/collaboration"})
+            result["next_actions"].append({"label": U(r"\u6253\u5f00\u591a\u667a\u80fd\u4f53"), "url": "/agents/collaboration"})
+        if intent == "task_creation":
+            result["data"]["proposed_action"] = {
+                "action_type": "create_task",
+                "title": summarize_text(question, 48) or U(r"Jarvis \u5efa\u8bae\u4efb\u52a1"),
+                "reason": U(r"Jarvis \u53ea\u751f\u6210\u5efa\u8bae\uff0c\u9700\u8981\u4eba\u5de5\u786e\u8ba4\u540e\u518d\u6267\u884c\u3002"),
+            }
+            result["next_actions"].append({"label": U(r"\u5148\u53bb\u4efb\u52a1\u4e2d\u5fc3\u624b\u52a8\u521b\u5efa"), "url": "/tasks"})
+        if intent == "report_generation":
+            result["data"]["report_placeholder"] = self.jarvis_report_payload(question)
+            result["sources"].append({"type": "report", "title": U(r"\u62a5\u544a\u751f\u6210\u6846\u67b6"), "url": "/jarvis"})
+        if intent == "research_query":
+            result["success"] = False
+            result["limitations"].append(U(r"\u5916\u90e8\u7814\u7a76\u5f15\u64ce\u5df2\u9884\u7559\uff0c\u672a\u914d\u7f6e\u5b9e\u65f6\u641c\u7d22 API \u65f6\u4e0d\u81ea\u52a8\u7f16\u9020\u5916\u90e8\u4e8b\u5b9e\u3002"))
+            result["next_actions"].append({"label": U(r"\u6253\u5f00\u5916\u7f51\u641c\u7d22\u5b58\u77e5\u8bc6\u5e93"), "url": "/web-search"})
+        if not result["sources"]:
+            result["limitations"].append(U(r"\u6682\u65e0\u53ef\u5f15\u7528\u6765\u6e90\u3002"))
+        return result
+
+    def jarvis_answer_payload(self, user, question):
+        intent = self.route_jarvis_intent(question)
+        tool = self.jarvis_tool_result(user, intent, question)
+        answer = U(r"Jarvis \u5bf9\u8bdd\u5165\u53e3\u5df2\u5efa\u7acb\uff0c\u5df2\u6309\u95ee\u9898\u610f\u56fe\u8fde\u63a5\u73b0\u6709\u77e5\u8bc6\u3001SAP \u6458\u8981\u3001\u8bb0\u5fc6\u3001\u56fe\u8c31\u3001\u4efb\u52a1\u548c\u667a\u80fd\u4f53\u6a21\u5757\u3002")
+        if intent in ("business_query", "sap_query") and tool["data"].get("metrics"):
+            m = tool["data"]["metrics"]
+            answer = "{}\n\n{}: {} | {}: {} | {}: {} | {}: {}".format(
+                U(r"\u5df2\u4ece SAP B1 \u6458\u8981\u548c\u7ecf\u8425\u9a7e\u9a76\u8231\u53d6\u5230\u5f53\u524d\u53ef\u7528\u6570\u636e\u3002"),
+                U(r"\u6628\u65e5\u9500\u552e"), money(m.get("yesterday_sales")),
+                U(r"\u672c\u6708\u9500\u552e"), money(m.get("month_sales")),
+                U(r"\u5b8c\u6210\u7387"), pct(m.get("completion_rate")),
+                U(r"\u5e93\u5b58\u91d1\u989d"), money(m.get("inventory_amount")),
+            )
+        elif intent == "knowledge_query":
+            count = len(tool["data"].get("knowledge_items", []))
+            answer = U(r"\u5df2\u5728\u77e5\u8bc6\u5e93\u4e2d\u68c0\u7d22\uff0c\u627e\u5230 {count} \u6761\u53ef\u53c2\u8003\u5185\u5bb9\u3002").format(count=count)
+        elif intent == "task_creation":
+            answer = U(r"\u6211\u5df2\u628a\u8fd9\u4e2a\u9700\u6c42\u8bc6\u522b\u4e3a\u4efb\u52a1\u521b\u5efa\u7c7b\u3002\u7cfb\u7edf\u5df2\u751f\u6210\u5f85\u786e\u8ba4\u52a8\u4f5c\uff0c\u786e\u8ba4\u540e\u518d\u8fdb\u5165\u6267\u884c\u3002")
+        elif intent == "report_generation":
+            answer = U(r"\u5df2\u751f\u6210\u62a5\u544a\u6846\u67b6\uff0c\u5f53\u524d\u4ec5\u4f5c\u8349\u7a3f\uff0c\u6b63\u5f0f\u62a5\u544a\u9700\u4eba\u5de5\u5ba1\u6838\u3002")
+        return {
+            "intent": intent,
+            "answer": answer,
+            "confidence": "medium" if tool["sources"] else "low",
+            "tool_calls": [{"tool": "jarvis_router", "intent": intent}, {"tool": "adapter_layer", "success": tool["success"]}],
+            "cited_sources": tool["sources"],
+            "related_objects": tool["data"],
+            "limitations": list(dict.fromkeys(tool["limitations"])),
+            "next_actions": tool["next_actions"],
+        }
+
+    def jarvis_report_payload(self, prompt=""):
+        return {
+            "report_type": "CEO Daily Report",
+            "title": summarize_text(prompt, 60) or U(r"AI \u603b\u7ecf\u7406\u65e5\u62a5\u8349\u7a3f"),
+            "sections": [
+                U(r"\u9500\u552e\u6458\u8981"),
+                U(r"\u6bdb\u5229\u4e0e\u5e93\u5b58"),
+                U(r"\u4f1a\u5458\u4e0e\u95e8\u5e97"),
+                U(r"\u98ce\u9669\u4e0e\u673a\u4f1a"),
+                U(r"AI \u5efa\u8bae"),
+                U(r"\u5f85\u4eba\u5de5\u5ba1\u6838\u4e8b\u9879"),
+            ],
+            "status": "draft_placeholder",
+            "note": U(r"\u672a\u63a5\u5165\u5927\u6a21\u578b\u548c\u62a5\u544a\u5ba1\u6838\u6d41\u7a0b\u524d\uff0c\u4e0d\u4ea7\u751f\u6b63\u5f0f\u62a5\u544a\u3002"),
+        }
+
+    def get_or_create_jarvis_conversation(self, conn, user, conversation_id, question):
+        row = None
+        if str(conversation_id or "").isdigit():
+            row = conn.execute("select * from jarvis_conversations where id=? and user_id=?", (conversation_id, user["id"])).fetchone()
+        elif conversation_id:
+            row = conn.execute("select * from jarvis_conversations where conversation_id=? and user_id=?", (conversation_id, user["id"])).fetchone()
+        if row:
+            return row
+        now = ts()
+        cur = conn.execute(
+            "insert into jarvis_conversations(conversation_id,user_id,title,status,created_at,updated_at) values(?,?,?,?,?,?)",
+            ("JAR-" + uuid.uuid4().hex[:10], user["id"], summarize_text(question, 40) or U(r"Jarvis \u65b0\u5bf9\u8bdd"), "active", now, now),
+        )
+        self.log_action(user, "jarvis_conversation_created", "jarvis_conversation", cur.lastrowid, question[:120])
+        return conn.execute("select * from jarvis_conversations where id=?", (cur.lastrowid,)).fetchone()
+
+    def save_jarvis_message(self, conn, conversation_id, role, content, payload=None):
+        now = ts()
+        payload = payload or {}
+        cur = conn.execute(
+            "insert into jarvis_messages(message_id,conversation_id,role,content,intent,tool_calls,cited_sources,related_objects,confidence,created_at) values(?,?,?,?,?,?,?,?,?,?)",
+            (
+                "MSG-" + uuid.uuid4().hex[:10],
+                conversation_id,
+                role,
+                content,
+                payload.get("intent", ""),
+                json.dumps(payload.get("tool_calls", []), ensure_ascii=False),
+                json.dumps(payload.get("cited_sources", []), ensure_ascii=False),
+                json.dumps(payload.get("related_objects", {}), ensure_ascii=False),
+                payload.get("confidence", ""),
+                now,
+            ),
+        )
+        return cur.lastrowid
+
+    def jarvis_center(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        if not self.can_use_jarvis(user):
+            return self.dashboard(user)
+        qd = parse_qs(urlparse(self.path).query)
+        cid = qd.get("conversation_id", [""])[0]
+        with db() as conn:
+            conversations = conn.execute("select * from jarvis_conversations where user_id=? order by updated_at desc limit 12", (user["id"],)).fetchall()
+            current = None
+            if cid:
+                current = conn.execute("select * from jarvis_conversations where (id=? or conversation_id=?) and user_id=?", (cid if cid.isdigit() else -1, cid, user["id"])).fetchone()
+            if not current and conversations:
+                current = conversations[0]
+            messages = conn.execute("select * from jarvis_messages where conversation_id=? order by created_at asc limit 80", (current["id"],)).fetchall() if current else []
+            actions = conn.execute("select * from jarvis_action_confirmations where created_by=? and status='pending' order by created_at desc limit 8", (user["id"],)).fetchall()
+        suggestions = self.jarvis_suggestions()
+        chips = "".join(
+            "<button type='button' onclick=\"document.getElementById('jarvis-question').value='{}'\">{}</button>".format(esc(q), esc(q))
+            for group in suggestions.values()
+            for q in group[:2]
+        )
+        message_html = ""
+        for msg in messages:
+            source_html = ""
+            if msg["role"] == "assistant":
+                sources = safe_json(msg["cited_sources"], [])
+                if sources:
+                    source_html = "<div class='small'>" + " ".join("<a class='pill' href='{}'>{}</a>".format(esc(s.get("url", "#")), esc(s.get("title", s.get("type", "source")))) for s in sources[:5]) + "</div>"
+            message_html += "<div class='chat-message {}'><strong>{}</strong><p>{}</p>{}</div>".format(esc(msg["role"]), esc(msg["role"]), esc(msg["content"]), source_html)
+        if not message_html:
+            message_html = "<div class='chat-message assistant'><strong>Jarvis</strong><p>{}</p></div>".format(U(r"\u4f60\u53ef\u4ee5\u76f4\u63a5\u95ee\u7ecf\u8425\u3001\u77e5\u8bc6\u5e93\u3001SAP\u3001\u8bb0\u5fc6\u3001\u56fe\u8c31\u548c\u4efb\u52a1\u3002\u6211\u4f1a\u5148\u627e\u5df2\u6709\u6765\u6e90\uff0c\u6ca1\u6709\u6765\u6e90\u65f6\u660e\u786e\u8bf4\u7b49\u5f85\u63a5\u5165\u3002"))
+        conversation_links = "".join("<a class='pill' href='/jarvis?conversation_id={}'>{}</a>".format(c["id"], esc(c["title"])) for c in conversations) or self.empty_state(U(r"\u6682\u65e0\u5386\u53f2\u5bf9\u8bdd\u3002"))
+        action_rows = ""
+        for action in actions:
+            action_rows += """
+<div class="source-item">
+  <strong>{}</strong><p class="small">{}</p>
+  <form class="inline" method="post" action="/jarvis/action">
+    <input type="hidden" name="action_id" value="{}">
+    <button name="decision" value="confirm">{}</button>
+    <button class="gray" name="decision" value="cancel">{}</button>
+  </form>
+</div>""".format(esc(action["title"]), esc(action["reason"]), esc(action["action_id"]), U(r"\u786e\u8ba4"), U(r"\u53d6\u6d88"))
+        if not action_rows:
+            action_rows = self.empty_state(U(r"\u6682\u65e0\u5f85\u786e\u8ba4\u52a8\u4f5c\u3002"))
+        body = f"""
+<div class="chat-shell">
+  <div>
+    <div class="panel">
+      <h2>FoxBrain Jarvis</h2>
+      <p class="small">{U(r'\u7edf\u4e00 AI \u52a9\u7406\u5165\u53e3\uff1a\u4e1a\u52a1\u67e5\u8be2\u3001\u77e5\u8bc6\u68c0\u7d22\u3001\u8bb0\u5fc6\u3001\u56fe\u8c31\u3001\u667a\u80fd\u4f53\u534f\u540c\u548c\u4efb\u52a1\u751f\u6210\u3002')}</p>
+      <div class="chipbar">{chips}</div>
+    </div>
+    <div class="panel">{message_html}</div>
+    <div class="chat-input">
+      <form method="post" action="/jarvis/message">
+        <input type="hidden" name="conversation_id" value="{esc(current['id'] if current else '')}">
+        <label>{U(r'\u95ee Jarvis')}</label>
+        <textarea id="jarvis-question" name="question" placeholder="{U(r'\u4f8b\uff1a\u4eca\u5929\u516c\u53f8\u7ecf\u8425\u600e\u4e48\u6837\uff1f')}" required></textarea>
+        <p><button>{U(r'\u53d1\u9001')}</button></p>
+      </form>
+    </div>
+  </div>
+  <div>
+    <div class="panel"><h2>{U(r'\u5bf9\u8bdd\u5386\u53f2')}</h2>{conversation_links}<p><a class="btn gray" href="/jarvis">{U(r'\u65b0\u5bf9\u8bdd')}</a></p></div>
+    <div class="panel"><h2>{U(r'\u5f85\u786e\u8ba4\u52a8\u4f5c')}</h2>{action_rows}</div>
+    <div class="panel"><h2>{U(r'\u6765\u6e90\u4e0e\u9650\u5236')}</h2>{self.bullets([U(r'\u56de\u7b54\u5c3d\u91cf\u5f15\u7528\u5df2\u6709\u77e5\u8bc6\u3001SAP \u6458\u8981\u3001\u8bb0\u5fc6\u548c\u56fe\u8c31\u3002'), U(r'\u6ca1\u6709\u6765\u6e90\u65f6\u4e0d\u7f16\u9020\u7ecf\u8425\u7ed3\u8bba\u3002'), U(r'\u91cd\u8981\u52a8\u4f5c\u9700\u4eba\u5de5\u786e\u8ba4\u3002')])}</div>
+    <div class="panel"><h2>{U(r'\u8bed\u97f3\u8f93\u5165')}</h2>{self.empty_state(U(r'\u8bed\u97f3\u8f93\u5165\u80fd\u529b\u9884\u7559\uff0c\u7b49\u5f85\u63a5\u5165\u8bed\u97f3\u8bc6\u522b\u670d\u52a1\u3002'))}</div>
+  </div>
+</div>"""
+        self.out(layout(U(r"FoxBrain Jarvis"), body, user=user, wide=True))
+
+    def jarvis_message_post(self):
+        user = self.current_user()
+        if not user:
+            return self.redir("/login")
+        form = self.form()
+        question = form.get("question", "").strip()
+        if not question:
+            return self.redir("/jarvis")
+        payload = self.jarvis_answer_payload(user, question)
+        now = ts()
+        with db() as conn:
+            conv = self.get_or_create_jarvis_conversation(conn, user, form.get("conversation_id", ""), question)
+            self.save_jarvis_message(conn, conv["id"], "user", question, {"intent": payload["intent"]})
+            self.save_jarvis_message(conn, conv["id"], "assistant", payload["answer"], payload)
+            conn.execute("update jarvis_conversations set updated_at=? where id=?", (now, conv["id"]))
+            proposed = payload["related_objects"].get("proposed_action") if isinstance(payload["related_objects"], dict) else None
+            if proposed:
+                conn.execute(
+                    "insert into jarvis_action_confirmations(action_id,conversation_id,action_type,title,reason,payload_json,status,created_by,created_at) values(?,?,?,?,?,?,?,?,?)",
+                    ("ACT-" + uuid.uuid4().hex[:10], conv["id"], proposed["action_type"], proposed["title"], proposed["reason"], json.dumps(proposed, ensure_ascii=False), "pending", user["id"], now),
+                )
+        self.log_action(user, "jarvis_question_asked", "jarvis_conversation", conv["id"], payload["intent"])
+        return self.redir(f"/jarvis?conversation_id={conv['id']}")
+
+    def jarvis_action_post(self):
+        user = self.current_user()
+        if not user:
+            return self.redir("/login")
+        if not self.can_confirm_jarvis_action(user):
+            return self.redir("/jarvis")
+        form = self.form()
+        action_id = form.get("action_id", "")
+        decision = form.get("decision", "confirm")
+        status = "confirmed" if decision == "confirm" else "cancelled"
+        with db() as conn:
+            conn.execute("update jarvis_action_confirmations set status=?, decided_by=?, decided_at=? where action_id=? and status='pending'", (status, user["id"], ts(), action_id))
+        self.log_action(user, "jarvis_action_" + status, "jarvis_action", None, action_id)
+        return self.redir("/jarvis")
+
+    def api_jarvis_get(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if path == "/api/jarvis/status":
+            return self.json_out({"ok": True, "status": "ready", "intents": ["general_question", "business_query", "sap_query", "knowledge_query", "research_query", "memory_query", "graph_query", "agent_collaboration", "task_creation", "report_generation", "content_generation", "system_help"], "ai_api": "not_required_for_v1"})
+        if path == "/api/jarvis/suggestions":
+            return self.json_out({"ok": True, "suggestions": self.jarvis_suggestions()})
+        if path == "/api/jarvis/conversations":
+            with db() as conn:
+                rows = conn.execute("select * from jarvis_conversations where user_id=? order by updated_at desc limit 50", (user["id"],)).fetchall()
+            return self.json_out({"ok": True, "conversations": [row_dict(r) for r in rows]})
+        m = re.match(r"^/api/jarvis/conversations/([^/]+)$", path)
+        if m:
+            cid = m.group(1)
+            with db() as conn:
+                conv = conn.execute("select * from jarvis_conversations where (id=? or conversation_id=?) and user_id=?", (cid if cid.isdigit() else -1, cid, user["id"])).fetchone()
+                if not conv:
+                    return self.json_out({"ok": False, "message": "not found"}, code=404)
+                msgs = conn.execute("select * from jarvis_messages where conversation_id=? order by created_at", (conv["id"],)).fetchall()
+            return self.json_out({"ok": True, "conversation": row_dict(conv), "messages": [row_dict(r) for r in msgs]})
+        return self.json_out({"ok": False, "message": "unknown jarvis api"}, code=404)
+
+    def api_jarvis_post(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        form = self.form()
+        if path == "/api/jarvis/conversations":
+            title = form.get("title", U(r"Jarvis \u65b0\u5bf9\u8bdd"))
+            now = ts()
+            with db() as conn:
+                cur = conn.execute("insert into jarvis_conversations(conversation_id,user_id,title,status,created_at,updated_at) values(?,?,?,?,?,?)", ("JAR-" + uuid.uuid4().hex[:10], user["id"], title, "active", now, now))
+            self.log_action(user, "jarvis_conversation_created", "jarvis_conversation", cur.lastrowid, title)
+            return self.json_out({"ok": True, "conversation_id": cur.lastrowid})
+        if path == "/api/jarvis/route-intent":
+            question = form.get("question", "")
+            intent = self.route_jarvis_intent(question)
+            self.log_action(user, "jarvis_intent_routed", "jarvis", None, intent)
+            return self.json_out({"ok": True, "intent": intent})
+        if path == "/api/jarvis/message":
+            question = form.get("question", "").strip()
+            if not question:
+                return self.json_out({"ok": False, "message": "question required"}, code=400)
+            payload = self.jarvis_answer_payload(user, question)
+            now = ts()
+            with db() as conn:
+                conv = self.get_or_create_jarvis_conversation(conn, user, form.get("conversation_id", ""), question)
+                user_mid = self.save_jarvis_message(conn, conv["id"], "user", question, {"intent": payload["intent"]})
+                assistant_mid = self.save_jarvis_message(conn, conv["id"], "assistant", payload["answer"], payload)
+                conn.execute("update jarvis_conversations set updated_at=? where id=?", (now, conv["id"]))
+            self.log_action(user, "jarvis_question_asked", "jarvis_conversation", conv["id"], payload["intent"])
+            return self.json_out({"ok": True, "conversation_id": conv["id"], "user_message_id": user_mid, "assistant_message_id": assistant_mid, "result": payload})
+        if path == "/api/jarvis/action/confirm":
+            if not self.can_confirm_jarvis_action(user):
+                return self.json_out({"ok": False, "message": "no permission"}, code=403)
+            action_id = form.get("action_id", "")
+            decision = form.get("decision", "confirm")
+            status = "confirmed" if decision == "confirm" else "cancelled"
+            with db() as conn:
+                conn.execute("update jarvis_action_confirmations set status=?, decided_by=?, decided_at=? where action_id=? and status='pending'", (status, user["id"], ts(), action_id))
+            self.log_action(user, "jarvis_action_" + status, "jarvis_action", None, action_id)
+            return self.json_out({"ok": True, "status": status})
+        if path == "/api/jarvis/report":
+            payload = self.jarvis_report_payload(form.get("prompt", ""))
+            self.log_action(user, "jarvis_report_generated", "report", None, payload["title"])
+            return self.json_out({"ok": True, "report": payload})
+        return self.json_out({"ok": False, "message": "unknown jarvis api"}, code=404)
 
 
 if __name__ == "__main__":
