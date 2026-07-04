@@ -1072,6 +1072,99 @@ create table if not exists field_submissions(
         conn.execute("create index if not exists idx_field_submissions_type on field_submissions(submission_type)")
         conn.execute("create index if not exists idx_field_submissions_status on field_submissions(status)")
         conn.execute("create index if not exists idx_field_submissions_user on field_submissions(created_by, created_at)")
+        conn.execute(
+            """
+create table if not exists store_diagnoses(
+ id integer primary key autoincrement,
+ diagnosis_id text unique,
+ store_id text not null,
+ date_range_start text,
+ date_range_end text,
+ sales_status text,
+ margin_status text,
+ traffic_status text,
+ conversion_status text,
+ inventory_status text,
+ staff_status text,
+ customer_status text,
+ key_problems text,
+ opportunities text,
+ ai_suggestions text,
+ data_sources text,
+ status text not null default 'draft',
+ created_by integer,
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_store_diagnoses_store on store_diagnoses(store_id, created_at)")
+        conn.execute(
+            """
+create table if not exists store_growth_plans(
+ id integer primary key autoincrement,
+ growth_plan_id text unique,
+ store_id text not null,
+ title text not null,
+ goal text,
+ start_date text,
+ end_date text,
+ target_sales text,
+ target_margin text,
+ target_customers text,
+ target_tasks text,
+ key_actions text,
+ related_brands text,
+ related_products text,
+ owner text,
+ status text not null default 'draft',
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_store_growth_plans_store on store_growth_plans(store_id, status)")
+        conn.execute(
+            """
+create table if not exists store_activities(
+ id integer primary key autoincrement,
+ activity_id text unique,
+ store_id text not null,
+ title text not null,
+ activity_type text,
+ start_date text,
+ end_date text,
+ target_customer text,
+ target_brand text,
+ target_product text,
+ budget text,
+ expected_result text,
+ content_plan text,
+ task_plan text,
+ status text not null default 'draft',
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_store_activities_store on store_activities(store_id, status)")
+        conn.execute(
+            """
+create table if not exists store_focus_items(
+ id integer primary key autoincrement,
+ focus_id text unique,
+ store_id text not null,
+ brand_id text,
+ product_id text,
+ focus_reason text,
+ period text,
+ status text not null default 'active',
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_store_focus_store on store_focus_items(store_id, status)")
         admin_email = os.environ.get("PORTAL_ADMIN_EMAIL", "vafox@126.com").strip().lower()
         existing_admin = conn.execute("select id from users where role='admin' limit 1").fetchone()
         if not existing_admin:
@@ -1220,6 +1313,8 @@ class App(BaseHTTPRequestHandler):
             return self.business_overview(user)
         if path == "/stores/operations":
             return self.store_operations(user)
+        if path == "/store-growth":
+            return self.store_growth_center(user)
         if path == "/brands/operations":
             return self.brand_operations(user)
         if path == "/inventory/risk":
@@ -1296,6 +1391,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_content_get(user, path)
         if path.startswith("/api/mobile") or path.startswith("/api/wecom"):
             return self.api_mobile_get(user, path)
+        if path.startswith("/api/store-growth"):
+            return self.api_store_growth_get(user, path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_get(user, path)
         if path.startswith("/api/sap/"):
@@ -1324,6 +1421,14 @@ class App(BaseHTTPRequestHandler):
             return self.mobile_submission_save()
         if path == "/mobile/tasks/complete":
             return self.mobile_task_complete()
+        if path == "/store-growth/diagnosis/save":
+            return self.store_growth_diagnosis_save()
+        if path == "/store-growth/plans/save":
+            return self.store_growth_plan_save()
+        if path == "/store-growth/activities/save":
+            return self.store_growth_activity_save()
+        if path == "/store-growth/focus/save":
+            return self.store_growth_focus_save()
         if path == "/automation/save":
             return self.automation_save()
         if path == "/workflows/save":
@@ -1354,6 +1459,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_content_post(self.current_user(), path)
         if path.startswith("/api/mobile") or path.startswith("/api/wecom"):
             return self.api_mobile_post(self.current_user(), path)
+        if path.startswith("/api/store-growth"):
+            return self.api_store_growth_post(self.current_user(), path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_post(self.current_user(), path)
         if path.startswith("/api/"):
@@ -1400,6 +1507,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_content_put(self.current_user(), path)
         if path.startswith("/api/mobile"):
             return self.api_mobile_put(self.current_user(), path)
+        if path.startswith("/api/store-growth"):
+            return self.api_store_growth_put(self.current_user(), path)
         return self.json_out({"ok": False, "message": "unsupported"}, code=404)
 
     def seed_workflow_templates(self, conn, user_id=None):
@@ -2276,6 +2385,7 @@ class App(BaseHTTPRequestHandler):
             self.card(U(r"AI \u8bb0\u5fc6\u4e2d\u5fc3"), U(r"\u957f\u671f\u7ecf\u8425\u539f\u5219\u3001\u51b3\u7b56\u3001\u504f\u597d\u3001\u5b9a\u4ef7\u548c\u98ce\u9669\u8bb0\u5fc6\u3002"), "/memory", "btn", True),
             self.card(U(r"\u4f01\u4e1a\u77e5\u8bc6\u56fe\u8c31"), U(r"\u8fde\u63a5\u95e8\u5e97\u3001\u54c1\u724c\u3001\u4ea7\u54c1\u3001\u77e5\u8bc6\u3001\u8bb0\u5fc6\u3001\u4efb\u52a1\u548c\u98ce\u9669\u3002"), "/graph", "btn green", can_manager),
             self.card(U(r"\u591a\u667a\u80fd\u4f53\u534f\u540c"), U(r"AI CEO\u3001CFO\u3001\u5e93\u5b58\u3001\u54c1\u724c\u3001\u95e8\u5e97\u7b49\u667a\u80fd\u4f53\u534f\u540c\u5206\u6790\u3002"), "/agents/collaboration", "btn", can_manager),
+            self.card(U(r"\u95e8\u5e97\u589e\u957f\u5f15\u64ce"), U(r"\u95e8\u5e97\u8bca\u65ad\u3001\u589e\u957f\u8ba1\u5212\u3001\u6d3b\u52a8\u3001\u4efb\u52a1\u6267\u884c\u548c\u590d\u76d8\u62a5\u544a\u3002"), "/store-growth", "btn green", can_manager),
             self.card(U(r"\u7cfb\u7edf\u7ba1\u7406"), U(r"\u5ba1\u6838\u5458\u5de5\u3001\u7981\u7528\u8d26\u53f7\u3001\u4fee\u6539\u89d2\u8272\u548c\u91cd\u7f6e\u5bc6\u7801\u3002"), "/admin", "btn dark", can_admin),
         ]
         info = '<div class="panel"><strong>{}</strong><p class="small">{}：{} ｜ {}：{} ｜ {}：{}</p></div>'.format(
@@ -3160,7 +3270,8 @@ class App(BaseHTTPRequestHandler):
         checks["content_engine_status"] = "ready"
         checks["mobile_field_engine_status"] = "ready"
         checks["enterprise_wechat_status"] = "placeholder"
-        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task013", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
+        checks["store_growth_engine_status"] = "ready"
+        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task014", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
 
     def api_health(self):
         return self.json_out(self.health_payload())
@@ -4331,6 +4442,242 @@ class App(BaseHTTPRequestHandler):
         self.log_action(user, "mobile_submission_updated", "field_submission", m.group(1), "")
         return self.json_out({"ok": True})
 
+    def can_manage_store_growth(self, user):
+        return bool(user and user["role"] in ("boss", "admin", "store_manager", "finance", "purchasing"))
+
+    def store_growth_stores(self):
+        return [U(r"\u5357\u5c71\u5e97"), U(r"\u632f\u5174\u5e97"), U(r"\u822a\u82d1\u5e97"), U(r"\u91d1\u6c99\u5e97"), U(r"\u7f51\u5e97")]
+
+    def store_growth_diagnosis_payload(self, store_id):
+        data = self.cockpit_data()
+        empty = data["empty_message"]
+        return {
+            "store_id": store_id,
+            "sales_status": "waiting_for_store_data",
+            "margin_status": "waiting_for_store_data",
+            "traffic_status": "manual_input_needed",
+            "conversion_status": "manual_input_needed",
+            "inventory_status": "waiting_for_sap_detail",
+            "staff_status": "waiting_for_task_execution",
+            "customer_status": "waiting_for_mobile_feedback",
+            "key_problems": [empty, U(r"\u95e8\u5e97\u5ba2\u6d41\u3001\u8f6c\u5316\u548c\u5458\u5de5\u6267\u884c\u9700\u901a\u8fc7\u624b\u673a\u4e00\u7ebf\u8fd0\u8425\u8865\u5145\u3002")],
+            "opportunities": [U(r"\u53ef\u4ece\u4e3b\u63a8\u54c1\u724c\u3001\u4e3b\u63a8\u4ea7\u54c1\u3001\u8001\u5ba2\u6fc0\u6d3b\u548c\u95e8\u5e97\u5185\u5bb9\u5f00\u59cb\u3002")],
+            "ai_suggestions": [U(r"\u5148\u5efa\u7acb 7-30 \u5929\u95e8\u5e97\u589e\u957f\u8ba1\u5212\uff0c\u518d\u628a\u52a8\u4f5c\u62c6\u6210\u4efb\u52a1\u3002")],
+            "data_sources": ["sap_summary", "mobile_submissions", "tasks", "content_engine", "reporting_engine"],
+        }
+
+    def store_growth_center(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        if not self.can_manage_store_growth(user):
+            return self.dashboard(user)
+        with db() as conn:
+            diagnoses = conn.execute("select * from store_diagnoses order by updated_at desc limit 20").fetchall()
+            plans = conn.execute("select * from store_growth_plans order by updated_at desc limit 50").fetchall()
+            activities = conn.execute("select * from store_activities order by updated_at desc limit 30").fetchall()
+            focus = conn.execute("select * from store_focus_items order by updated_at desc limit 30").fetchall()
+            field_counts = conn.execute("select status,count(*) c from field_submissions group by status").fetchall()
+        store_options = "".join("<option value='{}'>{}</option>".format(esc(s), esc(s)) for s in self.store_growth_stores())
+        plan_cards = "".join("<div class='card'><div><h2>{}</h2><p>{}</p><p class='small'>{} · {} · {}</p></div><form method='post' action='/api/store-growth/plans/{}/create-tasks'><button>{}</button></form></div>".format(esc(p["title"]), esc(p["goal"]), esc(p["store_id"]), esc(p["owner"]), esc(p["status"]), p["id"], U(r"\u751f\u6210\u4efb\u52a1")) for p in plans) or "<div class='panel'>{}</div>".format(self.empty_state(U(r"\u6682\u65e0\u589e\u957f\u8ba1\u5212\u3002")))
+        activity_items = [a["store_id"] + " · " + a["title"] + " · " + a["status"] for a in activities] or [U(r"\u6682\u65e0\u95e8\u5e97\u6d3b\u52a8\u3002")]
+        focus_items = [f["store_id"] + " · " + (f["brand_id"] or "") + " · " + (f["product_id"] or "") + " · " + f["status"] for f in focus] or [U(r"\u6682\u65e0\u4e3b\u63a8\u54c1\u724c/\u4ea7\u54c1\u3002")]
+        field_items = [r["status"] + ": " + str(r["c"]) for r in field_counts] or [U(r"\u6682\u65e0\u4e00\u7ebf\u63d0\u4ea4\u6570\u636e\u3002")]
+        diag_items = [d["store_id"] + " · " + d["status"] + " · " + dt(d["updated_at"]) for d in diagnoses] or [U(r"\u6682\u65e0\u95e8\u5e97\u8bca\u65ad\u3002")]
+        body = f"""
+<div class="panel">
+  <h2>{U(r'\u95e8\u5e97\u589e\u957f\u5f15\u64ce')}</h2>
+  <p class="small">{U(r'\u628a\u95e8\u5e97\u8bca\u65ad\u3001\u589e\u957f\u8ba1\u5212\u3001\u6d3b\u52a8\u3001\u5458\u5de5\u6267\u884c\u3001\u5185\u5bb9\u548c\u590d\u76d8\u4e32\u8d77\u6765\u3002\u6ca1\u6709\u6570\u636e\u65f6\u53ea\u663e\u793a\u7a7a\u72b6\u6001\u548c\u6a21\u677f\uff0c\u4e0d\u7f16\u9020\u7ed3\u8bba\u3002')}</p>
+</div>
+<div class="split">
+  <div class="panel form"><h2>{U(r'\u65b0\u5efa\u95e8\u5e97\u8bca\u65ad')}</h2><form method="post" action="/store-growth/diagnosis/save"><label>{T['store']}</label><select name="store_id">{store_options}</select><label>{U(r'\u5f00\u59cb\u65e5\u671f')}</label><input name="date_range_start"><label>{U(r'\u7ed3\u675f\u65e5\u671f')}</label><input name="date_range_end"><p><button>{U(r'\u751f\u6210\u8bca\u65ad\u8349\u7a3f')}</button></p></form></div>
+  <div class="panel"><h2>{U(r'\u8bca\u65ad\u8bb0\u5f55')}</h2>{self.bullets(diag_items)}</div>
+</div>
+<div class="split">
+  <div class="panel form"><h2>{U(r'\u65b0\u5efa\u589e\u957f\u8ba1\u5212')}</h2><form method="post" action="/store-growth/plans/save"><label>{T['store']}</label><select name="store_id">{store_options}</select><label>{U(r'\u8ba1\u5212\u6807\u9898')}</label><input name="title" required><label>{U(r'\u76ee\u6807')}</label><textarea name="goal"></textarea><label>{U(r'\u5173\u952e\u52a8\u4f5c')}</label><textarea name="key_actions" placeholder="{U(r'\u6bcf\u884c\u4e00\u4e2a\u52a8\u4f5c\uff0c\u53ef\u751f\u6210\u4efb\u52a1')}"></textarea><label>{U(r'\u8d23\u4efb\u4eba')}</label><input name="owner" value="{esc(user['name'])}"><p><button>{U(r'\u4fdd\u5b58\u8ba1\u5212')}</button></p></form></div>
+  <div class="panel form"><h2>{U(r'\u95e8\u5e97\u6d3b\u52a8')}</h2><form method="post" action="/store-growth/activities/save"><label>{T['store']}</label><select name="store_id">{store_options}</select><label>{U(r'\u6d3b\u52a8\u6807\u9898')}</label><input name="title" required><label>{U(r'\u6d3b\u52a8\u7c7b\u578b')}</label><input name="activity_type" placeholder="{U(r'\u4f1a\u5458\u65e5 / \u88c5\u5907\u8bfe\u5802 / \u6e05\u8d27\u6d3b\u52a8')}"><label>{U(r'\u5185\u5bb9\u8ba1\u5212')}</label><textarea name="content_plan"></textarea><label>{U(r'\u4efb\u52a1\u8ba1\u5212')}</label><textarea name="task_plan"></textarea><p><button>{U(r'\u4fdd\u5b58\u6d3b\u52a8')}</button></p></form></div>
+</div>
+<div class="panel"><h2>{U(r'\u589e\u957f\u8ba1\u5212')}</h2><div class="grid">{plan_cards}</div></div>
+<div class="split"><div class="panel"><h2>{U(r'\u95e8\u5e97\u6d3b\u52a8')}</h2>{self.bullets(activity_items)}</div><div class="panel"><h2>{U(r'\u4e00\u7ebf\u6267\u884c')}</h2>{self.bullets(field_items)}<p><a class="btn" href="/mobile/review">{U(r'\u5ba1\u6838\u4e00\u7ebf\u63d0\u4ea4')}</a></p></div></div>
+<div class="split">
+  <div class="panel form"><h2>{U(r'\u4e3b\u63a8\u54c1\u724c/\u4ea7\u54c1')}</h2><form method="post" action="/store-growth/focus/save"><label>{T['store']}</label><select name="store_id">{store_options}</select><label>{U(r'\u54c1\u724c')}</label><input name="brand_id" placeholder="KAILAS / Osprey / VAFOX"><label>{U(r'\u4ea7\u54c1')}</label><input name="product_id"><label>{U(r'\u4e3b\u63a8\u7406\u7531')}</label><textarea name="focus_reason"></textarea><label>{U(r'\u5468\u671f')}</label><input name="period"><p><button>{U(r'\u4fdd\u5b58\u4e3b\u63a8')}</button></p></form></div>
+  <div class="panel"><h2>{U(r'\u4e3b\u63a8\u6e05\u5355')}</h2>{self.bullets(focus_items)}</div>
+</div>
+<div class="panel"><h2>{U(r'\u5185\u5bb9\u4e0e\u590d\u76d8')}</h2>{self.bullets([U(r'\u53ef\u4ece\u589e\u957f\u8ba1\u5212\u751f\u6210\u95e8\u5e97\u5c0f\u7ea2\u4e66\u3001\u89c6\u9891\u53f7\u3001\u670b\u53cb\u5708\u548c\u793e\u7fa4\u901a\u77e5\u8349\u7a3f\u3002'), U(r'\u53ef\u4ece\u6d3b\u52a8\u548c\u4efb\u52a1\u751f\u6210\u95e8\u5e97\u590d\u76d8\u62a5\u544a\u8349\u7a3f\u3002')])}<p><a class="btn orange" href="/content">{U(r'\u6253\u5f00\u5185\u5bb9\u5f15\u64ce')}</a> <a class="btn dark" href="/reports">{U(r'\u6253\u5f00\u62a5\u544a\u4e2d\u5fc3')}</a></p></div>"""
+        self.out(layout(U(r"\u95e8\u5e97\u589e\u957f\u5f15\u64ce"), body, user=user, wide=True))
+
+    def store_growth_diagnosis_save(self):
+        user = self.current_user()
+        if not user:
+            return self.redir("/login")
+        if not self.can_manage_store_growth(user):
+            return self.redir("/")
+        form = self.form()
+        payload = self.store_growth_diagnosis_payload(form.get("store_id", ""))
+        now = ts()
+        with db() as conn:
+            cur = conn.execute(
+                "insert into store_diagnoses(diagnosis_id,store_id,date_range_start,date_range_end,sales_status,margin_status,traffic_status,conversion_status,inventory_status,staff_status,customer_status,key_problems,opportunities,ai_suggestions,data_sources,status,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("SD-" + uuid.uuid4().hex[:10], payload["store_id"], form.get("date_range_start", ""), form.get("date_range_end", ""), payload["sales_status"], payload["margin_status"], payload["traffic_status"], payload["conversion_status"], payload["inventory_status"], payload["staff_status"], payload["customer_status"], json.dumps(payload["key_problems"], ensure_ascii=False), json.dumps(payload["opportunities"], ensure_ascii=False), json.dumps(payload["ai_suggestions"], ensure_ascii=False), json.dumps(payload["data_sources"], ensure_ascii=False), "draft", user["id"], now, now),
+            )
+        self.log_action(user, "store_diagnosis_created", "store_diagnosis", cur.lastrowid, payload["store_id"])
+        return self.redir("/store-growth")
+
+    def store_growth_plan_save(self):
+        user = self.current_user()
+        if not user:
+            return self.redir("/login")
+        if not self.can_manage_store_growth(user):
+            return self.redir("/")
+        form = self.form()
+        now = ts()
+        with db() as conn:
+            cur = conn.execute(
+                "insert into store_growth_plans(growth_plan_id,store_id,title,goal,start_date,end_date,target_sales,target_margin,target_customers,target_tasks,key_actions,related_brands,related_products,owner,status,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("SGP-" + uuid.uuid4().hex[:10], form.get("store_id", ""), form.get("title", U(r"\u672a\u547d\u540d\u589e\u957f\u8ba1\u5212")), form.get("goal", ""), form.get("start_date", ""), form.get("end_date", ""), form.get("target_sales", ""), form.get("target_margin", ""), form.get("target_customers", ""), form.get("target_tasks", ""), form.get("key_actions", ""), form.get("related_brands", ""), form.get("related_products", ""), form.get("owner", user["name"]), "draft", now, now),
+            )
+        self.log_action(user, "store_growth_plan_created", "store_growth_plan", cur.lastrowid, form.get("title", ""))
+        return self.redir("/store-growth")
+
+    def store_growth_activity_save(self):
+        user = self.current_user()
+        if not user:
+            return self.redir("/login")
+        if not self.can_manage_store_growth(user):
+            return self.redir("/")
+        form = self.form()
+        now = ts()
+        with db() as conn:
+            cur = conn.execute(
+                "insert into store_activities(activity_id,store_id,title,activity_type,start_date,end_date,target_customer,target_brand,target_product,budget,expected_result,content_plan,task_plan,status,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("SA-" + uuid.uuid4().hex[:10], form.get("store_id", ""), form.get("title", U(r"\u672a\u547d\u540d\u6d3b\u52a8")), form.get("activity_type", ""), form.get("start_date", ""), form.get("end_date", ""), form.get("target_customer", ""), form.get("target_brand", ""), form.get("target_product", ""), form.get("budget", ""), form.get("expected_result", ""), form.get("content_plan", ""), form.get("task_plan", ""), "draft", now, now),
+            )
+        self.log_action(user, "store_activity_created", "store_activity", cur.lastrowid, form.get("title", ""))
+        return self.redir("/store-growth")
+
+    def store_growth_focus_save(self):
+        user = self.current_user()
+        if not user:
+            return self.redir("/login")
+        if not self.can_manage_store_growth(user):
+            return self.redir("/")
+        form = self.form()
+        now = ts()
+        with db() as conn:
+            cur = conn.execute("insert into store_focus_items(focus_id,store_id,brand_id,product_id,focus_reason,period,status,created_at,updated_at) values(?,?,?,?,?,?,?,?,?)", ("SF-" + uuid.uuid4().hex[:10], form.get("store_id", ""), form.get("brand_id", ""), form.get("product_id", ""), form.get("focus_reason", ""), form.get("period", ""), "active", now, now))
+        self.log_action(user, "store_focus_created", "store_focus", cur.lastrowid, form.get("store_id", ""))
+        return self.redir("/store-growth")
+
+    def store_growth_create_tasks(self, user, plan_id):
+        if not user:
+            return {"ok": False, "message": "login required"}, 401
+        if not self.can_manage_store_growth(user):
+            return {"ok": False, "message": "no permission"}, 403
+        now = ts()
+        created = []
+        with db() as conn:
+            plan = conn.execute("select * from store_growth_plans where id=?", (plan_id,)).fetchone()
+            if not plan:
+                return {"ok": False, "message": "not found"}, 404
+            actions = csv_values((plan["key_actions"] or "").replace("\n", ","))
+            if not actions:
+                actions = [U(r"\u8c03\u6574\u9648\u5217"), U(r"\u4e3b\u63a8\u54c1\u724c/\u4ea7\u54c1"), U(r"\u8054\u7cfb\u8001\u5ba2"), U(r"\u4e0a\u4f20\u95e8\u5e97\u7167\u7247"), U(r"\u590d\u76d8\u5b8c\u6210\u60c5\u51b5")]
+            for action in actions[:12]:
+                cur = conn.execute(
+                    "insert into tasks(task_id,title,description,owner,related_object_type,related_object_id,priority,status,due_date,source_type,source_id,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("TASK-" + uuid.uuid4().hex[:10], action, plan["store_id"] + " · " + plan["title"], plan["owner"], "store_growth_plan", plan["id"], "normal", "todo", plan["end_date"] or "", "store_growth", plan["growth_plan_id"], user["id"], now, now),
+                )
+                created.append(cur.lastrowid)
+            conn.execute("update store_growth_plans set status='active', updated_at=? where id=?", (now, plan_id))
+        self.log_action(user, "store_growth_tasks_created", "store_growth_plan", plan_id, str(len(created)))
+        return {"ok": True, "task_ids": created}, 200
+
+    def api_store_growth_get(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if not self.can_manage_store_growth(user):
+            return self.json_out({"ok": False, "message": "no permission"}, code=403)
+        with db() as conn:
+            if path == "/api/store-growth":
+                counts = {
+                    "diagnoses": conn.execute("select count(*) c from store_diagnoses").fetchone()["c"],
+                    "plans": conn.execute("select count(*) c from store_growth_plans").fetchone()["c"],
+                    "activities": conn.execute("select count(*) c from store_activities").fetchone()["c"],
+                    "focus": conn.execute("select count(*) c from store_focus_items").fetchone()["c"],
+                }
+                return self.json_out({"ok": True, "counts": counts, "stores": self.store_growth_stores(), "empty_message": self.cockpit_data()["empty_message"]})
+            if path == "/api/store-growth/diagnosis":
+                rows = conn.execute("select * from store_diagnoses order by updated_at desc limit 100").fetchall()
+                return self.json_out({"ok": True, "diagnosis": [row_dict(r) for r in rows]})
+            if path == "/api/store-growth/plans":
+                rows = conn.execute("select * from store_growth_plans order by updated_at desc limit 100").fetchall()
+                return self.json_out({"ok": True, "plans": [row_dict(r) for r in rows]})
+            m = re.match(r"^/api/store-growth/plans/(\d+)$", path)
+            if m:
+                row = conn.execute("select * from store_growth_plans where id=?", (m.group(1),)).fetchone()
+                return self.json_out({"ok": bool(row), "plan": row_dict(row)} if row else {"ok": False, "message": "not found"}, code=200 if row else 404)
+            if path == "/api/store-growth/activities":
+                rows = conn.execute("select * from store_activities order by updated_at desc limit 100").fetchall()
+                return self.json_out({"ok": True, "activities": [row_dict(r) for r in rows]})
+            if path == "/api/store-growth/focus":
+                rows = conn.execute("select * from store_focus_items order by updated_at desc limit 100").fetchall()
+                return self.json_out({"ok": True, "focus": [row_dict(r) for r in rows]})
+            if path == "/api/store-growth/reports":
+                rows = conn.execute("select * from reports where report_type in ('store','store_growth') order by updated_at desc limit 50").fetchall()
+                return self.json_out({"ok": True, "reports": [row_dict(r) for r in rows]})
+        return self.json_out({"ok": False, "message": "unknown store growth api"}, code=404)
+
+    def api_store_growth_post(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if not self.can_manage_store_growth(user):
+            return self.json_out({"ok": False, "message": "no permission"}, code=403)
+        form = self.form()
+        now = ts()
+        if path == "/api/store-growth/diagnosis":
+            payload = self.store_growth_diagnosis_payload(form.get("store_id", ""))
+            with db() as conn:
+                cur = conn.execute("insert into store_diagnoses(diagnosis_id,store_id,date_range_start,date_range_end,sales_status,margin_status,traffic_status,conversion_status,inventory_status,staff_status,customer_status,key_problems,opportunities,ai_suggestions,data_sources,status,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", ("SD-" + uuid.uuid4().hex[:10], payload["store_id"], form.get("date_range_start", ""), form.get("date_range_end", ""), payload["sales_status"], payload["margin_status"], payload["traffic_status"], payload["conversion_status"], payload["inventory_status"], payload["staff_status"], payload["customer_status"], json.dumps(payload["key_problems"], ensure_ascii=False), json.dumps(payload["opportunities"], ensure_ascii=False), json.dumps(payload["ai_suggestions"], ensure_ascii=False), json.dumps(payload["data_sources"], ensure_ascii=False), "draft", user["id"], now, now))
+            self.log_action(user, "store_diagnosis_created", "store_diagnosis", cur.lastrowid, payload["store_id"])
+            return self.json_out({"ok": True, "diagnosis_id": cur.lastrowid, "diagnosis": payload})
+        if path == "/api/store-growth/plans":
+            with db() as conn:
+                cur = conn.execute("insert into store_growth_plans(growth_plan_id,store_id,title,goal,start_date,end_date,target_sales,target_margin,target_customers,target_tasks,key_actions,related_brands,related_products,owner,status,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", ("SGP-" + uuid.uuid4().hex[:10], form.get("store_id", ""), form.get("title", U(r"\u672a\u547d\u540d\u589e\u957f\u8ba1\u5212")), form.get("goal", ""), form.get("start_date", ""), form.get("end_date", ""), form.get("target_sales", ""), form.get("target_margin", ""), form.get("target_customers", ""), form.get("target_tasks", ""), form.get("key_actions", ""), form.get("related_brands", ""), form.get("related_products", ""), form.get("owner", user["name"]), form.get("status", "draft"), now, now))
+            self.log_action(user, "store_growth_plan_created", "store_growth_plan", cur.lastrowid, form.get("title", ""))
+            return self.json_out({"ok": True, "plan_id": cur.lastrowid})
+        m = re.match(r"^/api/store-growth/plans/(\d+)/create-tasks$", path)
+        if m:
+            result, code = self.store_growth_create_tasks(user, m.group(1))
+            return self.json_out(result, code=code)
+        if path == "/api/store-growth/activities":
+            with db() as conn:
+                cur = conn.execute("insert into store_activities(activity_id,store_id,title,activity_type,start_date,end_date,target_customer,target_brand,target_product,budget,expected_result,content_plan,task_plan,status,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", ("SA-" + uuid.uuid4().hex[:10], form.get("store_id", ""), form.get("title", U(r"\u672a\u547d\u540d\u6d3b\u52a8")), form.get("activity_type", ""), form.get("start_date", ""), form.get("end_date", ""), form.get("target_customer", ""), form.get("target_brand", ""), form.get("target_product", ""), form.get("budget", ""), form.get("expected_result", ""), form.get("content_plan", ""), form.get("task_plan", ""), form.get("status", "draft"), now, now))
+            self.log_action(user, "store_activity_created", "store_activity", cur.lastrowid, form.get("title", ""))
+            return self.json_out({"ok": True, "activity_id": cur.lastrowid})
+        if path == "/api/store-growth/focus":
+            with db() as conn:
+                cur = conn.execute("insert into store_focus_items(focus_id,store_id,brand_id,product_id,focus_reason,period,status,created_at,updated_at) values(?,?,?,?,?,?,?,?,?)", ("SF-" + uuid.uuid4().hex[:10], form.get("store_id", ""), form.get("brand_id", ""), form.get("product_id", ""), form.get("focus_reason", ""), form.get("period", ""), form.get("status", "active"), now, now))
+            self.log_action(user, "store_focus_created", "store_focus", cur.lastrowid, form.get("store_id", ""))
+            return self.json_out({"ok": True, "focus_id": cur.lastrowid})
+        if path == "/api/store-growth/reports":
+            payload = self.report_draft_payload(user, "store_growth", form.get("title", U(r"\u95e8\u5e97\u589e\u957f\u590d\u76d8\u62a5\u544a")), "store", None)
+            return self.json_out({"ok": True, "report": payload, "message": U(r"\u95e8\u5e97\u590d\u76d8\u62a5\u544a\u6846\u67b6\u5df2\u751f\u6210\uff0c\u9700\u4eba\u5de5\u5ba1\u6838\u3002")})
+        return self.json_out({"ok": False, "message": "unknown store growth api"}, code=404)
+
+    def api_store_growth_put(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if not self.can_manage_store_growth(user):
+            return self.json_out({"ok": False, "message": "no permission"}, code=403)
+        m = re.match(r"^/api/store-growth/plans/(\d+)$", path)
+        if not m:
+            return self.json_out({"ok": False, "message": "unknown store growth api"}, code=404)
+        form = self.form()
+        with db() as conn:
+            conn.execute("update store_growth_plans set title=coalesce(?,title), goal=coalesce(?,goal), key_actions=coalesce(?,key_actions), owner=coalesce(?,owner), status=coalesce(?,status), updated_at=? where id=?", (form.get("title"), form.get("goal"), form.get("key_actions"), form.get("owner"), form.get("status"), ts(), m.group(1)))
+        self.log_action(user, "store_growth_plan_updated", "store_growth_plan", m.group(1), "")
+        return self.json_out({"ok": True})
+
     def can_manage_content(self, user):
         return bool(user and user["role"] in ("boss", "admin", "store_manager", "employee", "purchasing"))
 
@@ -4890,6 +5237,10 @@ class App(BaseHTTPRequestHandler):
             result["data"]["content_skeleton"] = {"body": body, "summary": summary, "platforms": ["wechat_official", "xiaohongshu", "douyin"]}
             result["sources"].append({"type": "content_engine", "title": U(r"\u5185\u5bb9\u53d1\u5e03\u5f15\u64ce"), "url": "/content"})
             result["next_actions"].append({"label": U(r"\u6253\u5f00\u5185\u5bb9\u53d1\u5e03\u5f15\u64ce"), "url": "/content"})
+        if any(word in (question or "") for word in [U(r"\u5357\u5c71\u5e97"), U(r"\u822a\u82d1\u5e97"), U(r"\u632f\u5174\u5e97"), U(r"\u91d1\u6c99\u5e97"), U(r"\u95e8\u5e97\u589e\u957f"), U(r"\u63d0\u5347\u8ba1\u5212")]):
+            result["data"]["store_growth"] = self.store_growth_diagnosis_payload(U(r"\u5f85\u9009\u95e8\u5e97"))
+            result["sources"].append({"type": "store_growth", "title": U(r"\u95e8\u5e97\u589e\u957f\u5f15\u64ce"), "url": "/store-growth"})
+            result["next_actions"].append({"label": U(r"\u6253\u5f00\u95e8\u5e97\u589e\u957f\u5f15\u64ce"), "url": "/store-growth"})
         if not result["sources"]:
             result["limitations"].append(U(r"\u6682\u65e0\u53ef\u5f15\u7528\u6765\u6e90\u3002"))
         return result

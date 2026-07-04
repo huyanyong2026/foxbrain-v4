@@ -86,6 +86,21 @@ Supported export placeholders:
 
 PDF and Word export are reserved for later versions.
 
+## Task014 Store Review Reports
+
+Store growth plans and activities can feed store review report drafts.
+
+Recommended sections:
+
+- Goal
+- Result
+- What worked
+- What failed
+- Customer feedback
+- Staff execution
+- Inventory impact
+- Next actions
+
 ## Safety
 
 - No fake SAP, finance, inventory, customer or market facts.

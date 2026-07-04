@@ -116,3 +116,16 @@ AI-generated public content must be reviewed before publishing.
 - Do not invent product facts, prices, promotion details or brand claims.
 - Do not publish automatically without secure platform integration.
 - Ordinary users cannot approve official public content.
+
+## Task014 Store Growth Integration
+
+Store growth plans can provide topics for:
+
+- Xiaohongshu store notes
+- WeChat Channels store activity videos
+- WeChat Official Account activity previews
+- Moments scripts
+- Community notices
+- Employee shooting checklists
+
+When no AI model is configured, the content engine returns a safe skeleton only.

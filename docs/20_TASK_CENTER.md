@@ -69,3 +69,19 @@ Mobile completion can include:
 - Audit log
 
 Managers can convert reviewed mobile submissions into employee-facing tasks.
+
+## Task014 Store Growth Tasks
+
+Store growth plans can generate execution tasks for store teams.
+
+Examples:
+
+- Adjust display
+- Push focus brand
+- Push focus product
+- Contact old customers
+- Publish store content
+- Run community activity
+- Upload customer feedback
+
+Generated tasks keep the growth plan as their source.

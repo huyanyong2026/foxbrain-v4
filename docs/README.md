@@ -37,6 +37,7 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [30_CONTENT_PUBLISHING_ENGINE.md](30_CONTENT_PUBLISHING_ENGINE.md)
 - [31_MOBILE_FIELD_OPERATION.md](31_MOBILE_FIELD_OPERATION.md)
 - [32_ENTERPRISE_WECHAT_INTEGRATION.md](32_ENTERPRISE_WECHAT_INTEGRATION.md)
+- [33_STORE_GROWTH_ENGINE.md](33_STORE_GROWTH_ENGINE.md)
 
 ## Codex Tasks
 
@@ -51,6 +52,7 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [Task011 Reporting Engine](CODEX_TASKS/Task011_Reporting_Engine.md)
 - [Task012 Content Publishing Engine](CODEX_TASKS/Task012_Content_Publishing_Engine.md)
 - [Task013 Mobile Field Operation](CODEX_TASKS/Task013_Mobile_Field_Operation.md)
+- [Task014 Store Growth Engine](CODEX_TASKS/Task014_Store_Growth_Engine.md)
 
 Future tasks should use folders:
 

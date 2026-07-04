@@ -178,6 +178,18 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - Enterprise WeChat placeholder
 - Health check now reports Mobile Field Engine status
 
+## V4 Task014 Completed
+
+- Store Growth Engine
+- Store diagnosis model
+- Store growth plan model
+- Store activity model
+- Product and brand focus framework
+- Growth-plan-to-task generation
+- Store content and review report placeholders
+- Jarvis store growth handoff
+- Health check now reports Store Growth Engine status
+
 ## V4 Routes
 
 - `/`
@@ -186,6 +198,7 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - `/mobile`
 - `/mobile/tasks`
 - `/mobile/review`
+- `/store-growth`
 - `/content`
 - `/business-overview`
 - `/stores`
@@ -286,6 +299,20 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - `POST /api/mobile/submissions/{id}/convert-to-knowledge`
 - `GET /api/mobile/notifications`
 - `GET /api/wecom/status`
+- `GET /api/store-growth`
+- `GET /api/store-growth/diagnosis`
+- `POST /api/store-growth/diagnosis`
+- `GET /api/store-growth/plans`
+- `POST /api/store-growth/plans`
+- `GET /api/store-growth/plans/{id}`
+- `PUT /api/store-growth/plans/{id}`
+- `POST /api/store-growth/plans/{id}/create-tasks`
+- `GET /api/store-growth/activities`
+- `POST /api/store-growth/activities`
+- `GET /api/store-growth/focus`
+- `POST /api/store-growth/focus`
+- `GET /api/store-growth/reports`
+- `POST /api/store-growth/reports`
 
 ## Security
 

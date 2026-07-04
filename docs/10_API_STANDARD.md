@@ -185,6 +185,25 @@ Content APIs produce drafts and platform versions. V1 does not publish automatic
 
 Mobile submissions are pending evidence until reviewed. Enterprise WeChat APIs are placeholders until credentials are configured in the environment.
 
+## Task014 Store Growth API
+
+- `GET /api/store-growth`
+- `GET /api/store-growth/diagnosis`
+- `POST /api/store-growth/diagnosis`
+- `GET /api/store-growth/plans`
+- `POST /api/store-growth/plans`
+- `GET /api/store-growth/plans/{id}`
+- `PUT /api/store-growth/plans/{id}`
+- `POST /api/store-growth/plans/{id}/create-tasks`
+- `GET /api/store-growth/activities`
+- `POST /api/store-growth/activities`
+- `GET /api/store-growth/focus`
+- `POST /api/store-growth/focus`
+- `GET /api/store-growth/reports`
+- `POST /api/store-growth/reports`
+
+Store growth APIs return templates and empty states when real store data is not available.
+
 ## Future API
 
 - `POST /api/files/parse`
