@@ -69,6 +69,19 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - Permission-safe knowledge visibility
 - Existing login, role system, SAP B1 sync, and archive engine preserved
 
+## V4 Task005 Completed
+
+- AI CEO Daily Briefing page
+- Business Cockpit V1
+- Store Operations page
+- Brand Operations page
+- Inventory Risk page
+- Osprey Pricing Risk analysis template and calculator API
+- Task Center V1
+- Health check endpoint
+- Production deployment documentation
+- Mobile-first card experience preserved
+
 ## V4 Routes
 
 - `/`
@@ -82,6 +95,12 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - `/documents`
 - `/knowledge`
 - `/knowledge/query`
+- `/stores/operations`
+- `/brands/operations`
+- `/inventory/risk`
+- `/brands/osprey-risk`
+- `/tasks`
+- `/system/health`
 - `/agents`
 - `/workflow`
 - `/sap-sync`
@@ -93,6 +112,10 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - `GET /api/sap/inventory-analysis`
 - `GET /api/sap/sales-trend`
 - `GET /api/sap/ai-analysis`
+- `GET /api/health`
+- `GET /api/ai-ceo/daily-briefing`
+- `GET /api/business/cockpit`
+- `GET /api/tasks`
 
 ## Security
 

@@ -14,6 +14,7 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [07_SAP_B1.md](07_SAP_B1.md)
 - [08_WORKFLOW.md](08_WORKFLOW.md)
 - [09_PERMISSION.md](09_PERMISSION.md)
+- [09_DEPLOY.md](09_DEPLOY.md)
 - [10_API_STANDARD.md](10_API_STANDARD.md)
 - [11_MOBILE.md](11_MOBILE.md)
 - [12_DOCUMENT_CENTER.md](12_DOCUMENT_CENTER.md)
@@ -26,6 +27,7 @@ This directory is the long-term documentation system for FoxBrain V4.
 
 - [Task001](CODEX_TASKS/Task001/README.md)
 - [Task003 Knowledge Engine](CODEX_TASKS/Task003_Knowledge_Engine.md)
+- [Task005 Production AI CEO Cockpit](CODEX_TASKS/Task005_Production_AI_CEO_Cockpit.md)
 
 Future tasks should use folders:
 

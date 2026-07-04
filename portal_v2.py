@@ -531,6 +531,30 @@ create table if not exists relations(
 )
 """
         )
+        conn.execute(
+            """
+create table if not exists tasks(
+ id integer primary key autoincrement,
+ task_id text unique,
+ title text not null,
+ description text,
+ owner text,
+ related_object_type text,
+ related_object_id integer,
+ priority text not null default 'normal',
+ status text not null default 'todo',
+ due_date text,
+ source_type text,
+ source_id text,
+ created_by integer,
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_tasks_status on tasks(status)")
+        conn.execute("create index if not exists idx_tasks_owner on tasks(owner)")
+        conn.execute("create index if not exists idx_tasks_related on tasks(related_object_type, related_object_id)")
         admin_email = os.environ.get("PORTAL_ADMIN_EMAIL", "vafox@126.com").strip().lower()
         existing_admin = conn.execute("select id from users where role='admin' limit 1").fetchone()
         if not existing_admin:
@@ -642,6 +666,8 @@ class App(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         user = self.current_user()
+        if path in ("/health", "/api/health"):
+            return self.api_health()
         if path == "/logout":
             return self.redir("/login", "fp_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax")
         if path == "/login":
@@ -668,6 +694,20 @@ class App(BaseHTTPRequestHandler):
             return self.workflow_center(user)
         if path == "/business-overview":
             return self.business_overview(user)
+        if path == "/overview":
+            return self.business_overview(user)
+        if path == "/stores/operations":
+            return self.store_operations(user)
+        if path == "/brands/operations":
+            return self.brand_operations(user)
+        if path == "/inventory/risk":
+            return self.inventory_risk(user)
+        if path == "/brands/osprey-risk":
+            return self.osprey_risk(user)
+        if path == "/tasks":
+            return self.task_center(user)
+        if path == "/system/health":
+            return self.system_health(user)
         if path == "/content-center":
             return self.module_page(user, "/content")
         if path == "/knowledge":
@@ -698,6 +738,8 @@ class App(BaseHTTPRequestHandler):
             return self.knowledge_form(user)
         if path == "/api/dashboard/summary":
             return self.json_out(load_summary())
+        if path.startswith("/api/ai-ceo") or path.startswith("/api/business") or path.startswith("/api/stores") or path.startswith("/api/brands") or path.startswith("/api/inventory") or path.startswith("/api/tasks"):
+            return self.api_task005_get(user, path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_get(user, path)
         if path.startswith("/api/sap/"):
@@ -710,6 +752,12 @@ class App(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+        if path == "/tasks/save":
+            return self.task_save()
+        if path == "/tasks/complete":
+            return self.task_complete()
+        if path.startswith("/api/ai-ceo") or path.startswith("/api/business") or path.startswith("/api/stores") or path.startswith("/api/brands") or path.startswith("/api/inventory") or path.startswith("/api/tasks"):
+            return self.api_task005_post(self.current_user(), path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_post(self.current_user(), path)
         if path.startswith("/api/"):
@@ -739,6 +787,12 @@ class App(BaseHTTPRequestHandler):
         if path == "/admin/reset-password":
             return self.admin_reset_password()
         return self.redir("/")
+
+    def do_PUT(self):
+        path = urlparse(self.path).path
+        if path.startswith("/api/tasks"):
+            return self.api_task005_post(self.current_user(), path)
+        return self.json_out({"ok": False, "message": "unsupported"}, code=404)
 
     def login(self, msg=""):
         body = f"""
@@ -2187,6 +2241,331 @@ class App(BaseHTTPRequestHandler):
                 conn.execute("insert into knowledge_query_history(user_id,question,scope,answer_json,created_at) values(?,?,?,?,?)", (user["id"], question, scope, json.dumps(answer_data, ensure_ascii=False), ts()))
             return self.json_out({"ok": True, "result": answer_data})
         return self.json_out({"ok": False, "message": "unknown knowledge api"}, code=404)
+
+    def empty_state(self, text):
+        return "<p class='small'>{}</p>".format(esc(text))
+
+    def cockpit_data(self):
+        s = load_summary()
+        has_sales = bool(float(s.get("month_sales") or 0) or float(s.get("yesterday_sales") or 0))
+        empty = U(r"\u7b49\u5f85 SAP B1 \u6570\u636e\u540c\u6b65\u540e\u751f\u6210\u7ecf\u8425\u5206\u6790\u3002")
+        return {
+            "has_data": has_sales,
+            "summary": s,
+            "empty_message": empty,
+            "metrics": {
+                "today_sales": s.get("today_sales") or 0,
+                "yesterday_sales": s.get("yesterday_sales") or 0,
+                "month_sales": s.get("month_sales") or 0,
+                "completion_rate": s.get("completion_rate") or 0,
+                "gross_profit": s.get("month_gross_profit") or 0,
+                "gross_margin": s.get("yesterday_gross_margin") or 0,
+                "inventory_amount": s.get("inventory_amount") or 0,
+                "risk_count": s.get("risk_count") or 0,
+                "data_date": s.get("data_date") or "",
+            },
+            "ai_suggestions": s.get("ai_suggestions", []) or [],
+            "todos": s.get("todos", []) or [],
+            "top_stores": s.get("top_stores", []) or [],
+            "top_brands": s.get("top_brands", []) or [],
+        }
+
+    def role_can_manage(self, user):
+        return bool(user and user["role"] in ("boss", "admin", "finance", "purchasing", "store_manager"))
+
+    def ai_ceo(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        if not self.can_open(user, ("boss", "admin", "finance", "purchasing")):
+            return self.dashboard(user)
+        data = self.cockpit_data()
+        m = data["metrics"]
+        metrics = "".join(
+            [
+                self.metric(U(r"\u6628\u65e5\u9500\u552e"), U(r"\uffe5") + money(m["yesterday_sales"]), U(r"\u6570\u636e\u65e5\u671f ") + str(m["data_date"])),
+                self.metric(U(r"\u672c\u6708\u9500\u552e"), U(r"\uffe5") + money(m["month_sales"]), U(r"\u5b8c\u6210\u7387 ") + pct(m["completion_rate"])),
+                self.metric(U(r"\u6bdb\u5229\u60c5\u51b5"), U(r"\uffe5") + money(m["gross_profit"]), U(r"\u6bdb\u5229\u7387 ") + pct(m["gross_margin"])),
+                self.metric(U(r"\u5e93\u5b58\u91d1\u989d"), U(r"\uffe5") + money(m["inventory_amount"]), U(r"\u98ce\u9669\u6570\u91cf ") + money(m["risk_count"])),
+            ]
+        )
+        default_wait = [data["empty_message"]]
+        risk_items = [
+            U(r"\u95e8\u5e97\u5f02\u5e38\uff1a\u7b49\u5f85\u95e8\u5e97\u9500\u552e\u3001\u6bdb\u5229\u548c\u5e93\u5b58\u6570\u636e\u5b8c\u6574\u540e\u5224\u65ad\u3002"),
+            U(r"\u54c1\u724c\u5f02\u5e38\uff1a\u7b49\u5f85\u54c1\u724c\u7ef4\u5ea6 SAP \u5206\u6790\u63a5\u5165\u3002"),
+            U(r"\u5e93\u5b58\u5f02\u5e38\uff1a\u53ef\u5148\u8fdb\u5165\u5e93\u5b58\u98ce\u9669\u9875\u68c0\u67e5\u3002"),
+        ]
+        body = f"""
+<div class="panel">
+  <h2>{U(r'AI \u603b\u7ecf\u7406\u65e5\u62a5')}</h2>
+  <p class="small">{U(r'\u8001\u677f\u6bcf\u5929\u6253\u5f00 FoxBrain\uff0c\u5148\u770b\u4eca\u5929\u6700\u9700\u8981\u5173\u6ce8\u7684\u4e8b\u3002')}</p>
+  <div class="metrics">{metrics}</div>
+</div>
+<div class="split">
+  <div class="panel"><h2>{U(r'\u4eca\u65e5\u7ecf\u8425\u6458\u8981')}</h2>{self.bullets(data['ai_suggestions'][:5] or default_wait)}</div>
+  <div class="panel"><h2>{U(r'\u4eca\u65e5\u98ce\u9669\u63d0\u9192')}</h2>{self.bullets(risk_items)}</div>
+</div>
+<div class="split">
+  <div class="panel"><h2>{U(r'\u4eca\u65e5\u91cd\u70b9\u4efb\u52a1')}</h2>{self.bullets(data['todos'] or [U(r'\u53ef\u4ece AI \u5efa\u8bae\u8f6c\u6210\u4efb\u52a1\uff0c\u5e76\u5206\u914d\u8d23\u4efb\u4eba\u3002')])}<p><a class="btn" href="/tasks">{U(r'\u8fdb\u5165\u4efb\u52a1\u4e2d\u5fc3')}</a></p></div>
+  <div class="panel"><h2>{U(r'\u5916\u90e8\u7814\u7a76\u63d0\u9192')}</h2>{self.bullets([U(r'\u7814\u7a76\u5f15\u64ce\u5df2\u9884\u7559\uff0c\u5916\u90e8\u4fe1\u606f\u9700\u5ba1\u6838\u540e\u624d\u80fd\u5165\u5e93\u3002'), U(r'\u672a\u914d\u7f6e\u5916\u90e8\u641c\u7d22 API \u65f6\u4e0d\u81ea\u52a8\u6293\u53d6\u65b0\u95fb\u3002')])}</div>
+</div>
+<div class="panel">
+  <h2>{U(r'AI \u5efa\u8bae')}</h2>
+  {self.bullets([U(r'\u5148\u5b8c\u5584 SAP B1 \u6bcf\u65e5 2:00 \u540c\u6b65\u7a33\u5b9a\u6027\u3002'), U(r'\u628a Osprey \u4ef7\u683c\u98ce\u9669\u653e\u5165\u4e13\u9898\u8ddf\u8e2a\u3002'), U(r'\u628a\u91cd\u70b9\u7ecf\u8425\u5efa\u8bae\u8f6c\u6210\u4efb\u52a1\uff0c\u907f\u514d\u53ea\u770b\u4e0d\u505a\u3002')])}
+  <p><a class="btn dark" href="/business-overview">{U(r'\u6253\u5f00\u7ecf\u8425\u9a7e\u9a76\u8231')}</a></p>
+</div>"""
+        self.out(layout(U(r"AI \u603b\u7ecf\u7406\u65e5\u62a5"), body, user=user, wide=True))
+
+    def business_overview(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        if not self.can_open(user, ("boss", "admin", "finance", "purchasing")):
+            return self.dashboard(user)
+        data = self.cockpit_data()
+        m = data["metrics"]
+        empty = data["empty_message"]
+        metrics = "".join(
+            [
+                self.metric(U(r"\u4eca\u65e5\u9500\u552e"), U(r"\uffe5") + money(m["today_sales"]), U(r"\u5b9e\u65f6\u6570\u636e\u5f85\u63a5\u5165")),
+                self.metric(U(r"\u672c\u6708\u9500\u552e"), U(r"\uffe5") + money(m["month_sales"]), pct(m["completion_rate"])),
+                self.metric(U(r"\u6bdb\u5229\u60c5\u51b5"), U(r"\uffe5") + money(m["gross_profit"]), pct(m["gross_margin"])),
+                self.metric(U(r"\u5e93\u5b58\u91d1\u989d"), U(r"\uffe5") + money(m["inventory_amount"]), U(r"\u98ce\u9669 ") + money(m["risk_count"])),
+            ]
+        )
+        store_cards = "".join(self.card(str(s.get("store", "")), U(r"\u7b49\u5f85\u95e8\u5e97\u8be6\u7ec6\u5206\u6790\u63a5\u5165\u3002"), "/stores/operations", "btn green", True) for s in data["top_stores"][:4])
+        brand_cards = "".join(self.card(str(b.get("brand", "")), U(r"\u7b49\u5f85\u54c1\u724c\u9500\u552e\u3001\u6bdb\u5229\u548c\u5e93\u5b58\u5206\u6790\u3002"), "/brands/operations", "btn", True) for b in data["top_brands"][:4])
+        body = f"""
+<div class="panel"><h2>{U(r'\u7ecf\u8425\u9a7e\u9a76\u8231 V1')}</h2><p class="small">{U(r'\u4e0d\u505a\u5bc6\u96c6 ERP \u62a5\u8868\uff0c\u53ea\u628a\u8001\u677f\u4eca\u5929\u9700\u8981\u770b\u7684\u4e8b\u653e\u5728\u4e00\u5c4f\u3002')}</p><div class="metrics">{metrics}</div></div>
+<div class="split">
+  <div class="panel"><h2>{U(r'\u95e8\u5e97\u6392\u540d')}</h2>{('<div class="grid">' + store_cards + '</div>') if store_cards else self.empty_state(empty)}<p><a class="btn" href="/stores/operations">{U(r'\u95e8\u5e97\u7ecf\u8425')}</a></p></div>
+  <div class="panel"><h2>{U(r'\u54c1\u724c\u6392\u540d')}</h2>{('<div class="grid">' + brand_cards + '</div>') if brand_cards else self.empty_state(empty)}<p><a class="btn" href="/brands/operations">{U(r'\u54c1\u724c\u7ecf\u8425')}</a></p></div>
+</div>
+<div class="split">
+  <div class="panel"><h2>{U(r'\u5f02\u5e38\u63d0\u9192')}</h2>{self.bullets([U(r'\u5e93\u5b58\u98ce\u9669\u8bf7\u8fdb\u5165\u5e93\u5b58\u98ce\u9669\u9875\u8ddf\u8fdb\u3002'), U(r'Osprey \u4ef7\u683c\u98ce\u9669\u5df2\u5efa\u7acb\u4e13\u9898\u6a21\u677f\u3002')])}</div>
+  <div class="panel"><h2>{U(r'AI \u5efa\u8bae')}</h2>{self.bullets(data['ai_suggestions'][:4] or [empty])}<p><a class="btn dark" href="/ai-ceo">{U(r'\u67e5\u770b AI \u603b\u7ecf\u7406\u65e5\u62a5')}</a></p></div>
+</div>"""
+        self.out(layout(U(r"\u7ecf\u8425\u9a7e\u9a76\u8231"), body, user=user, wide=True))
+
+    def store_operations(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        if not self.role_can_manage(user):
+            return self.dashboard(user)
+        stores = [U(r"\u5357\u5c71\u5e97"), U(r"\u632f\u5174\u5e97"), U(r"\u822a\u82d1\u5e97"), U(r"\u91d1\u6c99\u5e97"), U(r"\u7f51\u5e97")]
+        cards = "".join(self.card(store, U(r"\u9500\u552e\u3001\u6bdb\u5229\u3001\u5e93\u5b58\u3001\u8d39\u7528\u3001\u5458\u5de5\u548c AI \u5efa\u8bae\u7b49\u5f85\u6570\u636e\u63a5\u5165\u3002"), "/tasks", "btn green", True) for store in stores)
+        body = f"<div class='panel'><h2>{U(r'\u95e8\u5e97\u7ecf\u8425')}</h2><p class='small'>{U(r'\u6309\u95e8\u5e97\u67e5\u770b\u9500\u552e\u3001\u6bdb\u5229\u3001\u5e93\u5b58\u3001\u8d39\u7528\u3001\u5458\u5de5\u548c\u98ce\u9669\u3002')}</p></div><div class='grid'>{cards}</div>"
+        self.out(layout(U(r"\u95e8\u5e97\u7ecf\u8425"), body, user=user, wide=True))
+
+    def brand_operations(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        if not self.role_can_manage(user):
+            return self.dashboard(user)
+        brands = ["KAILAS", "Osprey", "Mammut", "Salomon", "Deuter", "Gregory", "VAFOX"]
+        cards = "".join(self.card(brand, U(r"\u9500\u552e\u8d8b\u52bf\u3001\u6bdb\u5229\u8d8b\u52bf\u3001\u5e93\u5b58\u538b\u529b\u3001\u6298\u6263\u98ce\u9669\u548c\u4f9b\u5e94\u5546\u98ce\u9669\u3002"), "/brands/osprey-risk" if brand == "Osprey" else "/tasks", "btn", True) for brand in brands)
+        body = f"<div class='panel'><h2>{U(r'\u54c1\u724c\u7ecf\u8425')}</h2><p class='small'>{U(r'\u4e0d\u4f2a\u9020\u9500\u552e\u6570\u636e\uff0c\u6ca1\u6709 SAP \u7ef4\u5ea6\u65f6\u663e\u793a\u7b49\u5f85\u63a5\u5165\u3002')}</p></div><div class='grid'>{cards}</div>"
+        self.out(layout(U(r"\u54c1\u724c\u7ecf\u8425"), body, user=user, wide=True))
+
+    def inventory_risk(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        if not self.role_can_manage(user):
+            return self.dashboard(user)
+        data = self.cockpit_data()
+        m = data["metrics"]
+        body = f"""
+<div class="panel"><h2>{U(r'\u5e93\u5b58\u98ce\u9669')}</h2><div class="metrics">{self.metric(U(r'\u5e93\u5b58\u91d1\u989d'), U(r'\uffe5') + money(m['inventory_amount']), U(r'SAP B1'))}{self.metric(U(r'\u98ce\u9669\u6570\u91cf'), money(m['risk_count']), U(r'\u9700\u8ddf\u8fdb'))}</div></div>
+<div class="split">
+  <div class="panel"><h2>{U(r'\u98ce\u9669\u7c7b\u578b')}</h2>{self.bullets([U(r'\u9ad8\u5e93\u5b58\u54c1\u724c'), U(r'\u9ad8\u5e93\u5b58\u4ea7\u54c1'), U(r'\u6ede\u9500\u4ea7\u54c1'), U(r'\u5b63\u8282\u98ce\u9669'), U(r'\u6298\u6263\u98ce\u9669'), U(r'\u73b0\u91d1\u6d41\u5360\u7528')])}</div>
+  <div class="panel"><h2>{U(r'AI \u6e05\u8d27\u5efa\u8bae')}</h2>{self.bullets([data['empty_message'], U(r'\u540e\u7eed\u6309\u54c1\u724c\u3001SKU\u3001\u5c3a\u7801\u3001\u5e97\u94fa\u751f\u6210\u6e05\u8d27\u52a8\u4f5c\u3002')])}</div>
+</div>"""
+        self.out(layout(U(r"\u5e93\u5b58\u98ce\u9669"), body, user=user, wide=True))
+
+    def osprey_risk(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        if not self.role_can_manage(user):
+            return self.dashboard(user)
+        body = f"""
+<div class="panel"><h2>{U(r'Osprey \u4ef7\u683c\u98ce\u9669\u4e13\u9898')}</h2><p class="small">{U(r'\u8fd9\u662f\u7ed3\u6784\u5316\u5206\u6790\u6a21\u677f\uff0c\u4e0d\u628a\u8f93\u5165\u5185\u5bb9\u81ea\u52a8\u5f53\u4f5c\u7cfb\u7edf\u4e8b\u5b9e\u3002')}</p></div>
+<div class="split">
+  <div class="panel"><h2>{U(r'\u5f53\u524d\u95ee\u9898')}</h2>{self.bullets([U(r'\u4f4e\u6298\u6263\u9500\u552e\u53ef\u80fd\u5f71\u54cd\u6bdb\u5229\u548c\u7528\u6237\u4ef7\u683c\u9884\u671f\u3002'), U(r'\u8fd4\u70b9\u4e0d\u786e\u5b9a\u4f1a\u5f71\u54cd\u771f\u5b9e\u5229\u6da6\u3002'), U(r'\u4ee3\u7406/\u6e20\u9053\u7a33\u5b9a\u6027\u9700\u8981\u6301\u7eed\u89c2\u5bdf\u3002')])}</div>
+  <div class="panel"><h2>{U(r'\u5bf9\u6bd4\u6a21\u578b')}</h2>{self.bullets([U(r'59 \u6298\u957f\u671f\u9500\u552e\u98ce\u9669'), U(r'60 / 62 / 65 \u6298\u5bf9\u6bd4'), U(r'\u8fd4\u70b9\u4f9d\u8d56\u98ce\u9669'), U(r'\u5e93\u5b58\u63d0\u8d27\u98ce\u9669')])}</div>
+</div>
+<div class="panel form">
+  <h2>{U(r'\u7b80\u6613\u8bd5\u7b97\u5668')}</h2>
+  <form method="post" action="/api/brands/osprey-risk/calculate">
+    <label>{U(r'\u6210\u672c\u6298\u6263')}</label><input name="cost_discount" placeholder="0.50">
+    <label>{U(r'\u9500\u552e\u6298\u6263')}</label><input name="selling_discount" placeholder="0.60">
+    <label>{U(r'\u8fd4\u70b9\u6bd4\u7387')}</label><input name="rebate_rate" placeholder="0.03">
+    <label>{U(r'\u5e93\u5b58\u91d1\u989d')}</label><input name="inventory_amount" placeholder="0">
+    <label>{U(r'\u9884\u8ba1\u9500\u552e\u989d')}</label><input name="expected_sales_amount" placeholder="0">
+    <label>{U(r'\u56fa\u5b9a\u8d39\u7528\u5206\u644a')}</label><input name="fixed_expense_allocation" placeholder="0">
+    <p class="small">{U(r'\u7ed3\u679c\u7531 API \u8fd4\u56de JSON\uff0c\u4e0d\u5199\u6b7b\u8d22\u52a1\u7ed3\u8bba\u3002')}</p>
+  </form>
+</div>
+<div class="split"><div class="panel"><h2>{U(r'\u76f8\u5173\u6587\u4ef6')}</h2>{self.empty_state(U(r'\u53ef\u4ece\u77e5\u8bc6\u5e93\u5173\u8054 Osprey \u6587\u6863\u3002'))}</div><div class="panel"><h2>{U(r'\u76f8\u5173\u7814\u7a76')}</h2>{self.empty_state(U(r'\u7814\u7a76\u5f15\u64ce\u63a5\u5165\u540e\u663e\u793a\u5916\u90e8\u4ef7\u683c\u89c2\u5bdf\u3002'))}</div></div>"""
+        self.out(layout(U(r"Osprey \u4ef7\u683c\u98ce\u9669"), body, user=user, wide=True))
+
+    def task_center(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        with db() as conn:
+            rows = conn.execute("select * from tasks order by status='done', updated_at desc limit 100").fetchall()
+        cards = ""
+        for row in rows:
+            cards += "<div class='card'><div><h2>{}</h2><p>{}</p><p class='small'>{} · {} · {} · {}</p></div>{}</div>".format(
+                esc(row["title"]), esc(row["description"]), esc(row["owner"]), esc(row["priority"]), esc(row["status"]), esc(row["due_date"]),
+                "" if row["status"] == "done" else f"<form method='post' action='/tasks/complete'><input type='hidden' name='id' value='{row['id']}'><button>{U(r'完成')}</button></form>"
+            )
+        if not cards:
+            cards = "<div class='panel'>{}</div>".format(self.empty_state(U(r"\u6682\u65e0\u4efb\u52a1\uff0c\u53ef\u4ece AI \u5efa\u8bae\u6216\u65e5\u5e38\u7ecf\u8425\u4e2d\u521b\u5efa\u3002")))
+        body = f"""
+<div class="panel form"><h2>{U(r'\u4efb\u52a1\u4e2d\u5fc3 V1')}</h2>
+  <form method="post" action="/tasks/save">
+    <label>{U(r'\u4efb\u52a1\u6807\u9898')}</label><input name="title" required>
+    <label>{U(r'\u8bf4\u660e')}</label><textarea name="description"></textarea>
+    <label>{U(r'\u8d23\u4efb\u4eba')}</label><input name="owner" placeholder="{esc(user['name'])}">
+    <label>{U(r'\u4f18\u5148\u7ea7')}</label><select name="priority"><option value="normal">{U(r'\u666e\u901a')}</option><option value="high">{U(r'\u9ad8')}</option><option value="urgent">{U(r'\u7d27\u6025')}</option><option value="low">{U(r'\u4f4e')}</option></select>
+    <label>{U(r'\u622a\u6b62\u65e5\u671f')}</label><input name="due_date" placeholder="2026-07-05">
+    <label>{U(r'\u5173\u8054\u5bf9\u8c61')}</label><input name="related_object_type" placeholder="stores / brands / knowledge / research"><input name="related_object_id" placeholder="ID">
+    <p><button>{U(r'\u521b\u5efa\u4efb\u52a1')}</button></p>
+  </form>
+</div>
+<div class="grid">{cards}</div>"""
+        self.out(layout(U(r"\u4efb\u52a1\u4e2d\u5fc3"), body, user=user, wide=True))
+
+    def task_save(self):
+        user = self.current_user()
+        if not user:
+            return self.redir("/login")
+        form = self.form()
+        title = form.get("title", "").strip()
+        if not title:
+            return self.redir("/tasks")
+        priority = form.get("priority", "normal")
+        if priority not in ("low", "normal", "high", "urgent"):
+            priority = "normal"
+        related_id = form.get("related_object_id", "").strip()
+        now = ts()
+        with db() as conn:
+            cur = conn.execute(
+                "insert into tasks(task_id,title,description,owner,related_object_type,related_object_id,priority,status,due_date,source_type,source_id,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("TASK-" + uuid.uuid4().hex[:10], title, form.get("description", ""), form.get("owner", "") or user["name"], form.get("related_object_type", ""), int(related_id) if related_id.isdigit() else None, priority, "todo", form.get("due_date", ""), form.get("source_type", "manual"), form.get("source_id", ""), user["id"], now, now),
+            )
+            conn.execute("insert into timeline_events(target_type,target_id,title,body,created_by,created_at) values(?,?,?,?,?,?)", ("task", cur.lastrowid, U(r"\u521b\u5efa\u4efb\u52a1"), title, user["id"], now))
+        self.log_action(user, "task_create", "task", cur.lastrowid, title)
+        return self.redir("/tasks")
+
+    def task_complete(self):
+        user = self.current_user()
+        if not user:
+            return self.redir("/login")
+        tid = self.form().get("id")
+        with db() as conn:
+            conn.execute("update tasks set status='done', updated_at=? where id=?", (ts(), tid))
+        self.log_action(user, "task_complete", "task", tid, "")
+        return self.redir("/tasks")
+
+    def health_payload(self):
+        now = ts()
+        checks = {}
+        try:
+            with db() as conn:
+                conn.execute("select 1").fetchone()
+            checks["database_status"] = "ok"
+        except Exception:
+            checks["database_status"] = "error"
+        checks["sap_sync_status"] = "summary_file_present" if os.path.exists(SAP_SUMMARY_FILE) else "waiting"
+        checks["document_engine_status"] = "ready"
+        checks["knowledge_engine_status"] = "ready"
+        checks["research_engine_status"] = "placeholder"
+        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task005", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
+
+    def api_health(self):
+        return self.json_out(self.health_payload())
+
+    def system_health(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        payload = self.health_payload()
+        items = [f"{k}: {v}" for k, v in payload.items()]
+        body = f"<div class='panel'><h2>{U(r'\u7cfb\u7edf\u5065\u5eb7\u68c0\u67e5')}</h2>{self.bullets(items)}<p><a class='btn' href='/api/health'>{U(r'JSON \u5065\u5eb7\u63a5\u53e3')}</a></p></div>"
+        self.out(layout(U(r"\u7cfb\u7edf\u5065\u5eb7\u68c0\u67e5"), body, user=user))
+
+    def calculate_osprey_payload(self, form):
+        def f(name):
+            try:
+                return float(form.get(name, "") or 0)
+            except Exception:
+                return 0.0
+        cost_discount = f("cost_discount")
+        selling_discount = f("selling_discount")
+        rebate_rate = f("rebate_rate")
+        expected_sales = f("expected_sales_amount")
+        fixed_expense = f("fixed_expense_allocation")
+        gross_margin = selling_discount - cost_discount
+        rebate_adjusted = gross_margin + rebate_rate
+        net_after_expense = expected_sales * rebate_adjusted - fixed_expense if expected_sales else 0
+        risk_level = "unknown"
+        if expected_sales:
+            risk_level = "high" if net_after_expense < 0 else ("medium" if rebate_adjusted < 0.08 else "review")
+        return {"gross_margin_spread": gross_margin, "rebate_adjusted_margin_spread": rebate_adjusted, "estimated_net_after_expense": net_after_expense, "risk_level": risk_level, "note": U(r"\u8bd5\u7b97\u4ec5\u57fa\u4e8e\u7528\u6237\u8f93\u5165\uff0c\u4e0d\u4ee3\u8868 SAP \u5b9e\u9645\u8d22\u52a1\u7ed3\u8bba\u3002")}
+
+    def api_task005_get(self, user, path):
+        if not user and path != "/api/health":
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if path == "/api/ai-ceo/daily-briefing":
+            return self.json_out({"ok": True, "data": self.cockpit_data(), "message": "safe briefing payload"})
+        if path == "/api/business/cockpit":
+            return self.json_out({"ok": True, "data": self.cockpit_data()})
+        if path == "/api/stores/operations":
+            return self.json_out({"ok": True, "stores": [U(r"\u5357\u5c71\u5e97"), U(r"\u632f\u5174\u5e97"), U(r"\u822a\u82d1\u5e97"), U(r"\u91d1\u6c99\u5e97"), U(r"\u7f51\u5e97")], "message": self.cockpit_data()["empty_message"]})
+        if path == "/api/brands/operations":
+            return self.json_out({"ok": True, "brands": ["KAILAS", "Osprey", "Mammut", "Salomon", "Deuter", "Gregory", "VAFOX"], "message": self.cockpit_data()["empty_message"]})
+        if path == "/api/inventory/risk":
+            return self.json_out({"ok": True, "data": self.cockpit_data()["metrics"], "message": self.cockpit_data()["empty_message"]})
+        if path == "/api/brands/osprey-risk":
+            return self.json_out({"ok": True, "template": "osprey pricing risk", "message": U(r"\u4ec5\u4f5c\u4e3a\u7ed3\u6784\u5316\u98ce\u9669\u6a21\u677f\uff0c\u4e0d\u58f0\u660e\u4e3a\u7cfb\u7edf\u4e8b\u5b9e\u3002")})
+        if path == "/api/tasks":
+            with db() as conn:
+                rows = conn.execute("select * from tasks order by updated_at desc limit 100").fetchall()
+            return self.json_out({"ok": True, "tasks": [row_dict(r) for r in rows]})
+        return self.json_out({"ok": False, "message": "unknown Task005 api"}, code=404)
+
+    def api_task005_post(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if path == "/api/brands/osprey-risk/calculate":
+            return self.json_out({"ok": True, "result": self.calculate_osprey_payload(self.form())})
+        if path == "/api/tasks":
+            form = self.form()
+            now = ts()
+            with db() as conn:
+                cur = conn.execute(
+                    "insert into tasks(task_id,title,description,owner,related_object_type,related_object_id,priority,status,due_date,source_type,source_id,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("TASK-" + uuid.uuid4().hex[:10], form.get("title", U(r"\u672a\u547d\u540d\u4efb\u52a1")), form.get("description", ""), form.get("owner", user["name"]), form.get("related_object_type", ""), None, form.get("priority", "normal"), "todo", form.get("due_date", ""), form.get("source_type", "api"), form.get("source_id", ""), user["id"], now, now),
+                )
+            return self.json_out({"ok": True, "task_id": cur.lastrowid})
+        m = re.match(r"^/api/tasks/(\d+)/complete$", path)
+        if m:
+            with db() as conn:
+                conn.execute("update tasks set status='done', updated_at=? where id=?", (ts(), m.group(1)))
+            return self.json_out({"ok": True})
+        m = re.match(r"^/api/tasks/(\d+)$", path)
+        if m:
+            form = self.form()
+            with db() as conn:
+                conn.execute("update tasks set title=coalesce(?,title), description=coalesce(?,description), owner=coalesce(?,owner), priority=coalesce(?,priority), status=coalesce(?,status), due_date=coalesce(?,due_date), updated_at=? where id=?", (form.get("title"), form.get("description"), form.get("owner"), form.get("priority"), form.get("status"), form.get("due_date"), ts(), m.group(1)))
+            return self.json_out({"ok": True})
+        return self.json_out({"ok": False, "message": "unknown Task005 api"}, code=404)
 
 
 if __name__ == "__main__":

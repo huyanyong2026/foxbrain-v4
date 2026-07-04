@@ -1,26 +1,61 @@
 # 15 Deployment / 部署
 
-## 本地启动
+## Local Start
 
 ```bash
 python3 portal_v2.py
 ```
 
-默认监听：
+Default address:
 
 ```text
 127.0.0.1:8088
 ```
 
-## 生产建议
+## Production Recommendation
 
-- Ubuntu 服务器
-- systemd 管理服务
-- Nginx/Caddy HTTPS 反向代理
-- `.env` 保存真实配置
-- 定时任务执行 SAP B1 同步
+- Ubuntu server
+- systemd service management
+- Nginx or Caddy HTTPS reverse proxy
+- `.env` / `portal.env` for real configuration
+- Scheduled SAP B1 sync, normally once per day at 2:00
 
-## 安全
+## Task005 Health Check
 
-不要提交真实密码、API Key、数据库连接和服务器私密信息。
+- UI: `/system/health`
+- API: `/api/health`
 
+The health check reports:
+
+- app version
+- environment
+- database status
+- SAP sync status
+- document engine status
+- knowledge engine status
+- research engine status
+- timestamp
+
+It must not expose passwords, database credentials, API keys, tokens, or server secrets.
+
+## Backup Before Upgrade
+
+- `portal.db`
+- `uploads/`
+- `portal.env`
+- `secret.key`
+
+## Rollback Plan
+
+1. Stop service.
+2. Switch code back to the previous commit.
+3. Restore database and uploads backup if needed.
+4. Restart service.
+5. Check `/api/health`.
+
+## Security
+
+- Do not commit passwords or API keys.
+- Do not delete production database during deployment.
+- Run syntax checks before restart.
+- Keep rollback-ready backups before each upgrade.

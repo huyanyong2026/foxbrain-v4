@@ -2,12 +2,12 @@
 
 ## 通用原则
 
-- 所有 API 返回 JSON
-- 未登录返回 `401`
-- 无权限或找不到返回安全错误，不泄露敏感信息
-- 不在代码或响应中暴露密码、API Key、数据库连接串
-- 不编造 AI 业务答案或 SAP 数据
-- 写操作必须记录必要日志，后续接入 token/API key 鉴权
+- 所有 API 返回 JSON。
+- 未登录返回 `401`。
+- 无权限或找不到返回安全错误，不泄露敏感信息。
+- 不在代码或响应中暴露密码、API Key、数据库连接串。
+- 不编造 AI 业务答案、SAP 数据或外部新闻。
+- 写操作需要登录并记录必要日志。
 
 ## 推荐返回结构
 
@@ -19,7 +19,7 @@
 }
 ```
 
-## 当前 Dashboard / SAP API
+## Dashboard / SAP API
 
 - `GET /api/dashboard/summary`
 - `GET /api/sap/business-analysis`
@@ -39,6 +39,23 @@
 - `POST /api/knowledge/query`
 - `GET /api/knowledge/query-history`
 
+## Task005 Production Cockpit API
+
+- `GET /api/ai-ceo/daily-briefing`
+- `GET /api/business/cockpit`
+- `GET /api/stores/operations`
+- `GET /api/brands/operations`
+- `GET /api/inventory/risk`
+- `GET /api/brands/osprey-risk`
+- `POST /api/brands/osprey-risk/calculate`
+- `GET /api/tasks`
+- `POST /api/tasks`
+- `PUT /api/tasks/{id}`
+- `POST /api/tasks/{id}/complete`
+- `GET /api/health`
+
+Task005 APIs return safe empty structures when real SAP B1 data is unavailable.
+
 ## AI Query Response
 
 ```json
@@ -55,7 +72,7 @@
 }
 ```
 
-## 后续 API
+## Future API
 
 - `POST /api/files/parse`
 - `POST /api/knowledge/embed`
