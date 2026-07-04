@@ -11,3 +11,5 @@ __pycache__/
 *.log
 .codex_tmp_paramiko/
 latest_summary.json
+foxbrain-v4-docs-clean-*/
+foxbrain-v4-docs-clean-*.zip
