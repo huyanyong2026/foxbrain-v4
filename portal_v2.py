@@ -555,6 +555,87 @@ create table if not exists tasks(
         conn.execute("create index if not exists idx_tasks_status on tasks(status)")
         conn.execute("create index if not exists idx_tasks_owner on tasks(owner)")
         conn.execute("create index if not exists idx_tasks_related on tasks(related_object_type, related_object_id)")
+        conn.execute(
+            """
+create table if not exists workflow_templates(
+ id integer primary key autoincrement,
+ template_id text unique,
+ name text not null,
+ description text,
+ trigger_type text,
+ steps_json text,
+ owner text,
+ status text not null default 'draft',
+ related_object_type text,
+ ai_recommendation text,
+ created_by integer,
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_workflow_templates_status on workflow_templates(status)")
+        conn.execute(
+            """
+create table if not exists automations(
+ id integer primary key autoincrement,
+ automation_id text unique,
+ name text not null,
+ description text,
+ trigger_type text not null default 'manual',
+ schedule_rule text,
+ action_type text,
+ template_id integer,
+ status text not null default 'draft',
+ owner text,
+ last_run_at integer,
+ next_run_at integer,
+ related_object_type text,
+ related_object_id integer,
+ ai_recommendation text,
+ created_by integer,
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_automations_status on automations(status)")
+        conn.execute("create index if not exists idx_automations_trigger on automations(trigger_type)")
+        conn.execute(
+            """
+create table if not exists automation_runs(
+ id integer primary key autoincrement,
+ run_id text unique,
+ automation_id integer,
+ status text not null default 'pending',
+ started_at integer,
+ finished_at integer,
+ message text,
+ result_json text,
+ created_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_automation_runs_status on automation_runs(status)")
+        conn.execute(
+            """
+create table if not exists notifications(
+ id integer primary key autoincrement,
+ notification_id text unique,
+ channel text not null default 'in_app',
+ title text not null,
+ body text,
+ recipient_user_id integer,
+ status text not null default 'pending',
+ related_object_type text,
+ related_object_id integer,
+ created_by integer,
+ created_at integer not null,
+ read_at integer
+)
+"""
+        )
+        conn.execute("create index if not exists idx_notifications_status on notifications(status)")
         admin_email = os.environ.get("PORTAL_ADMIN_EMAIL", "vafox@126.com").strip().lower()
         existing_admin = conn.execute("select id from users where role='admin' limit 1").fetchone()
         if not existing_admin:
@@ -706,6 +787,8 @@ class App(BaseHTTPRequestHandler):
             return self.osprey_risk(user)
         if path == "/tasks":
             return self.task_center(user)
+        if path == "/automation":
+            return self.automation_center(user)
         if path == "/system/health":
             return self.system_health(user)
         if path == "/content-center":
@@ -740,6 +823,8 @@ class App(BaseHTTPRequestHandler):
             return self.json_out(load_summary())
         if path.startswith("/api/ai-ceo") or path.startswith("/api/business") or path.startswith("/api/stores") or path.startswith("/api/brands") or path.startswith("/api/inventory") or path.startswith("/api/tasks"):
             return self.api_task005_get(user, path)
+        if path.startswith("/api/automation") or path.startswith("/api/workflows") or path.startswith("/api/notifications"):
+            return self.api_automation_get(user, path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_get(user, path)
         if path.startswith("/api/sap/"):
@@ -756,8 +841,14 @@ class App(BaseHTTPRequestHandler):
             return self.task_save()
         if path == "/tasks/complete":
             return self.task_complete()
+        if path == "/automation/save":
+            return self.automation_save()
+        if path == "/workflows/save":
+            return self.workflow_template_save()
         if path.startswith("/api/ai-ceo") or path.startswith("/api/business") or path.startswith("/api/stores") or path.startswith("/api/brands") or path.startswith("/api/inventory") or path.startswith("/api/tasks"):
             return self.api_task005_post(self.current_user(), path)
+        if path.startswith("/api/automation") or path.startswith("/api/workflows") or path.startswith("/api/notifications"):
+            return self.api_automation_post(self.current_user(), path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_post(self.current_user(), path)
         if path.startswith("/api/"):
@@ -793,6 +884,50 @@ class App(BaseHTTPRequestHandler):
         if path.startswith("/api/tasks"):
             return self.api_task005_post(self.current_user(), path)
         return self.json_out({"ok": False, "message": "unsupported"}, code=404)
+
+    def seed_workflow_templates(self, conn, user_id=None):
+        templates = [
+            (U(r"\u91c7\u8d2d\u5ba1\u6279"), U(r"\u4ece\u9700\u6c42\u3001\u8be2\u4ef7\u3001\u5ba1\u6279\u5230\u4e0b\u5355\u7684\u91c7\u8d2d\u6d41\u7a0b\u3002"), "manual", [U(r"\u63d0\u4ea4\u9700\u6c42"), U(r"\u91c7\u8d2d\u590d\u6838"), U(r"\u8001\u677f\u5ba1\u6279"), U(r"\u751f\u6210\u4efb\u52a1")]),
+            (U(r"\u4ed8\u6b3e\u5ba1\u6279"), U(r"\u4ed8\u6b3e\u7533\u8bf7\u3001\u8d22\u52a1\u590d\u6838\u3001\u8001\u677f\u5ba1\u6279\u548c\u8bb0\u5f55\u3002"), "manual", [U(r"\u63d0\u4ea4\u4ed8\u6b3e"), U(r"\u8d22\u52a1\u68c0\u67e5"), U(r"\u5ba1\u6279"), U(r"\u901a\u77e5")]),
+            (U(r"\u62db\u8058"), U(r"\u9700\u6c42\u786e\u8ba4\u3001\u9762\u8bd5\u3001\u5f55\u7528\u548c\u5165\u804c\u3002"), "manual", [U(r"\u63d0\u4ea4\u5c97\u4f4d"), U(r"\u7b5b\u9009\u7b80\u5386"), U(r"\u9762\u8bd5"), U(r"\u5f55\u7528")]),
+            (U(r"\u5458\u5de5\u5165\u804c"), U(r"\u5165\u804c\u8d44\u6599\u3001\u57f9\u8bad\u3001\u6743\u9650\u548c\u95e8\u5e97\u4ea4\u63a5\u3002"), "manual", [U(r"\u6536\u96c6\u8d44\u6599"), U(r"\u5efa\u7acb\u8d26\u53f7"), U(r"\u57f9\u8bad"), U(r"\u8bd5\u7528\u671f\u8ddf\u8fdb")]),
+            (U(r"\u5458\u5de5\u79bb\u804c"), U(r"\u79bb\u804c\u7533\u8bf7\u3001\u4ea4\u63a5\u3001\u7ed3\u7b97\u548c\u6743\u9650\u56de\u6536\u3002"), "manual", [U(r"\u63d0\u4ea4\u7533\u8bf7"), U(r"\u4ea4\u63a5"), U(r"\u7ed3\u7b97"), U(r"\u56de\u6536\u6743\u9650")]),
+            (U(r"\u5408\u540c\u5ba1\u6838"), U(r"\u5408\u540c\u4e0a\u4f20\u3001AI \u6458\u8981\u3001\u98ce\u9669\u63d0\u9192\u548c\u5ba1\u6279\u3002"), "document_uploaded", [U(r"\u4e0a\u4f20\u5408\u540c"), U(r"AI \u6458\u8981"), U(r"\u4eba\u5de5\u5ba1\u6838"), U(r"\u5f52\u6863")]),
+            (U(r"\u95e8\u5e97\u5de1\u68c0"), U(r"\u95e8\u5e97\u536b\u751f\u3001\u9648\u5217\u3001\u4eba\u5458\u548c\u5e93\u5b58\u5de1\u68c0\u3002"), "scheduled", [U(r"\u751f\u6210\u5de1\u68c0\u4efb\u52a1"), U(r"\u95e8\u5e97\u586b\u62a5"), U(r"\u5ba1\u6838\u5f02\u5e38"), U(r"\u8ddf\u8fdb")]),
+            (U(r"\u5e93\u5b58\u76d8\u70b9"), U(r"\u76d8\u70b9\u4efb\u52a1\u3001\u5dee\u5f02\u8bb0\u5f55\u548c AI \u5206\u6790\u3002"), "inventory_threshold", [U(r"\u751f\u6210\u76d8\u70b9"), U(r"\u95e8\u5e97\u6267\u884c"), U(r"\u5dee\u5f02\u590d\u6838"), U(r"\u8c03\u6574\u5efa\u8bae")]),
+            (U(r"\u8425\u9500\u6d3b\u52a8"), U(r"\u4ece\u9009\u9898\u3001\u7d20\u6750\u3001\u5ba1\u6838\u5230\u53d1\u5e03\u8ddf\u8e2a\u3002"), "manual", [U(r"\u63d0\u4ea4\u65b9\u6848"), U(r"AI \u751f\u6210\u6587\u6848"), U(r"\u5ba1\u6838"), U(r"\u53d1\u5e03")]),
+            (U(r"\u54c1\u724c\u4e0a\u65b0"), U(r"\u65b0\u54c1\u8d44\u6599\u3001\u57f9\u8bad\u3001\u5e93\u5b58\u548c\u8425\u9500\u4e0a\u67b6\u3002"), "manual", [U(r"\u54c1\u724c\u8d44\u6599"), U(r"\u57f9\u8bad"), U(r"\u4e0a\u67b6"), U(r"\u590d\u76d8")]),
+        ]
+        now = ts()
+        for name, desc, trigger, steps in templates:
+            exists = conn.execute("select id from workflow_templates where name=?", (name,)).fetchone()
+            if not exists:
+                conn.execute(
+                    "insert into workflow_templates(template_id,name,description,trigger_type,steps_json,owner,status,ai_recommendation,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?)",
+                    ("WF-" + uuid.uuid4().hex[:10], name, desc, trigger, json.dumps(steps, ensure_ascii=False), U(r"\u7cfb\u7edf"), "active", U(r"\u7b49\u5f85 AI \u63a5\u5165\u540e\u751f\u6210\u6d41\u7a0b\u4f18\u5316\u5efa\u8bae\u3002"), user_id, now, now),
+                )
+
+    def automation_summary(self):
+        with db() as conn:
+            self.seed_workflow_templates(conn)
+            running = conn.execute("select count(*) c from automations where status='running'").fetchone()["c"]
+            pending = conn.execute("select count(*) c from automations where status in ('draft','active','paused')").fetchone()["c"]
+            failed = conn.execute("select count(*) c from automation_runs where status='failed'").fetchone()["c"]
+            templates = conn.execute("select * from workflow_templates order by updated_at desc limit 50").fetchall()
+            automations = conn.execute("select * from automations order by updated_at desc limit 50").fetchall()
+            runs = conn.execute("select * from automation_runs order by created_at desc limit 20").fetchall()
+            notifications = conn.execute("select * from notifications order by created_at desc limit 20").fetchall()
+        daily_jobs = [
+            U(r"CEO \u6bcf\u65e5\u7ecf\u8425\u65e5\u62a5"),
+            U(r"\u5e93\u5b58\u98ce\u9669\u626b\u63cf"),
+            U(r"\u9500\u552e\u8d8b\u52bf\u626b\u63cf"),
+            U(r"\u7814\u7a76\u6458\u8981"),
+            U(r"\u77e5\u8bc6\u5e93\u6458\u8981"),
+        ]
+        triggers = ["manual", "scheduled", "sap_data_change", "document_uploaded", "knowledge_approved", "research_approved", "inventory_threshold", "sales_threshold"]
+        actions = ["generate_summary", "create_task", "notify_manager", "generate_report", "suggest_purchasing", "suggest_markdown", "suggest_transfer", "create_meeting_note"]
+        channels = ["in_app", "email", "enterprise_wechat_placeholder", "sms_placeholder"]
+        return {"running": running, "pending": pending, "failed": failed, "templates": templates, "automations": automations, "runs": runs, "notifications": notifications, "daily_jobs": daily_jobs, "triggers": triggers, "actions": actions, "channels": channels}
 
     def login(self, msg=""):
         body = f"""
@@ -1618,6 +1753,7 @@ class App(BaseHTTPRequestHandler):
             self.card(U(r"\u77e5\u8bc6\u4e2d\u5fc3"), U(r"\u516c\u53f8\u5236\u5ea6\u3001SOP\u3001\u57f9\u8bad\u3001\u4ea7\u54c1\u8d44\u6599\u548c AI \u5f00\u53d1\u6587\u6863\u3002"), "/knowledge", "btn red", True),
             self.card(U(r"AI \u667a\u80fd\u4f53\u67e5\u8be2"), U(r"\u4f18\u5148\u67e5\u5185\u90e8\u77e5\u8bc6\u5e93\uff0c\u4e0d\u8db3\u65f6\u518d\u63a5\u5916\u7f51\u641c\u7d22\u3002"), "/ai-assistant", "btn", True),
             self.card(U(r"\u4efb\u52a1\u4e2d\u5fc3"), U(r"\u4eca\u65e5\u5f85\u529e\u3001\u95e8\u5e97\u4efb\u52a1\u3001\u81ea\u52a8\u5316\u4efb\u52a1\u548c\u8ddf\u8fdb\u63d0\u9192\u3002"), "/tasks", "btn", True),
+            self.card(U(r"AI \u81ea\u52a8\u5316"), U(r"\u6d41\u7a0b\u6a21\u677f\u3001\u89e6\u53d1\u5668\u3001AI \u52a8\u4f5c\u3001\u6267\u884c\u5386\u53f2\u548c\u901a\u77e5\u4e2d\u5fc3\u3002"), "/automation", "btn", can_manager),
             self.card(U(r"\u7cfb\u7edf\u7ba1\u7406"), U(r"\u5ba1\u6838\u5458\u5de5\u3001\u7981\u7528\u8d26\u53f7\u3001\u4fee\u6539\u89d2\u8272\u548c\u91cd\u7f6e\u5bc6\u7801\u3002"), "/admin", "btn dark", can_admin),
         ]
         info = '<div class="panel"><strong>{}</strong><p class="small">{}：{} ｜ {}：{} ｜ {}：{}</p></div>'.format(
@@ -2486,7 +2622,8 @@ class App(BaseHTTPRequestHandler):
         checks["document_engine_status"] = "ready"
         checks["knowledge_engine_status"] = "ready"
         checks["research_engine_status"] = "placeholder"
-        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task005", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
+        checks["automation_engine_status"] = "ready"
+        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task006", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
 
     def api_health(self):
         return self.json_out(self.health_payload())
@@ -2566,6 +2703,136 @@ class App(BaseHTTPRequestHandler):
                 conn.execute("update tasks set title=coalesce(?,title), description=coalesce(?,description), owner=coalesce(?,owner), priority=coalesce(?,priority), status=coalesce(?,status), due_date=coalesce(?,due_date), updated_at=? where id=?", (form.get("title"), form.get("description"), form.get("owner"), form.get("priority"), form.get("status"), form.get("due_date"), ts(), m.group(1)))
             return self.json_out({"ok": True})
         return self.json_out({"ok": False, "message": "unknown Task005 api"}, code=404)
+
+    def automation_center(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        if not self.role_can_manage(user):
+            return self.dashboard(user)
+        data = self.automation_summary()
+        metrics = "".join(
+            [
+                self.metric(U(r"\u8fd0\u884c\u4e2d"), data["running"], U(r"\u5f53\u524d\u6d41\u7a0b")),
+                self.metric(U(r"\u5f85\u5904\u7406"), data["pending"], U(r"\u542f\u7528/\u8349\u7a3f/\u6682\u505c")),
+                self.metric(U(r"\u5931\u8d25\u4efb\u52a1"), data["failed"], U(r"\u9700\u590d\u6838")),
+                self.metric(U(r"\u6a21\u677f"), len(data["templates"]), U(r"\u53ef\u590d\u7528")),
+            ]
+        )
+        template_cards = "".join(
+            "<div class='card'><div><h2>{}</h2><p>{}</p><p class='small'>{} · {}</p></div><span class='pill'>{}</span></div>".format(
+                esc(t["name"]), esc(t["description"]), esc(t["trigger_type"]), esc(t["owner"]), esc(t["status"])
+            )
+            for t in data["templates"][:10]
+        )
+        automation_cards = "".join(
+            "<div class='card'><div><h2>{}</h2><p>{}</p><p class='small'>{} · {} · {}</p></div><span class='pill'>{}</span></div>".format(
+                esc(a["name"]), esc(a["description"]), esc(a["trigger_type"]), esc(a["action_type"]), esc(a["owner"]), esc(a["status"])
+            )
+            for a in data["automations"][:10]
+        )
+        if not automation_cards:
+            automation_cards = "<div class='panel'>{}</div>".format(self.empty_state(U(r"\u6682\u65e0\u81ea\u52a8\u5316\u4efb\u52a1\uff0c\u53ef\u5148\u521b\u5efa\u4e00\u6761\u624b\u52a8\u6216\u5b9a\u65f6\u6d41\u7a0b\u3002")))
+        body = f"""
+<div class="panel">
+  <h2>{U(r'AI \u81ea\u52a8\u5316\u4e2d\u5fc3')}</h2>
+  <p class="small">{U(r'\u628a\u7ecf\u8425\u5efa\u8bae\u3001SAP \u626b\u63cf\u3001\u77e5\u8bc6\u5e93\u3001\u7814\u7a76\u5f15\u64ce\u548c\u4efb\u52a1\u4e2d\u5fc3\u8fde\u6210\u53ef\u6267\u884c\u7684 AI \u6d41\u7a0b\u3002')}</p>
+  <div class="metrics">{metrics}</div>
+</div>
+<div class="split">
+  <div class="panel form">
+    <h2>{U(r'\u521b\u5efa\u81ea\u52a8\u5316')}</h2>
+    <form method="post" action="/automation/save">
+      <label>{U(r'\u540d\u79f0')}</label><input name="name" required>
+      <label>{U(r'\u8bf4\u660e')}</label><textarea name="description"></textarea>
+      <label>{U(r'\u89e6\u53d1\u5668')}</label><select name="trigger_type">{''.join('<option value="{}">{}</option>'.format(esc(x), esc(x)) for x in data['triggers'])}</select>
+      <label>{U(r'AI \u52a8\u4f5c')}</label><select name="action_type">{''.join('<option value="{}">{}</option>'.format(esc(x), esc(x)) for x in data['actions'])}</select>
+      <label>{U(r'\u8d1f\u8d23\u4eba')}</label><input name="owner" value="{esc(user['name'])}">
+      <p><button>{U(r'\u4fdd\u5b58\u81ea\u52a8\u5316')}</button></p>
+    </form>
+  </div>
+  <div class="panel">
+    <h2>{U(r'AI \u6bcf\u65e5\u81ea\u52a8\u4efb\u52a1')}</h2>{self.bullets(data['daily_jobs'])}
+    <h2>{U(r'\u901a\u77e5\u6e20\u9053')}</h2>{self.bullets(data['channels'])}
+  </div>
+</div>
+<div class="panel"><h2>{U(r'\u5de5\u4f5c\u6d41\u6a21\u677f')}</h2><div class="grid">{template_cards}</div></div>
+<div class="panel"><h2>{U(r'\u81ea\u52a8\u5316\u4efb\u52a1')}</h2><div class="grid">{automation_cards}</div></div>
+<div class="panel"><h2>{U(r'\u6267\u884c\u5386\u53f2')}</h2>{self.bullets([dt(r['created_at']) + ' · ' + r['status'] + ' · ' + (r['message'] or '') for r in data['runs']] or [U(r'\u6682\u65e0\u6267\u884c\u8bb0\u5f55\u3002')])}</div>
+<div class="panel"><h2>{U(r'\u901a\u77e5\u4e2d\u5fc3')}</h2>{self.bullets([n['channel'] + ' · ' + n['title'] + ' · ' + n['status'] for n in data['notifications']] or [U(r'\u6682\u65e0\u901a\u77e5\u3002')])}</div>"""
+        self.out(layout(U(r"AI \u81ea\u52a8\u5316\u4e2d\u5fc3"), body, user=user, wide=True))
+
+    def automation_save(self):
+        user = self.current_user()
+        if not user:
+            return self.redir("/login")
+        if not self.role_can_manage(user):
+            return self.redir("/")
+        form = self.form()
+        name = form.get("name", "").strip()
+        if not name:
+            return self.redir("/automation")
+        now = ts()
+        with db() as conn:
+            cur = conn.execute(
+                "insert into automations(automation_id,name,description,trigger_type,action_type,status,owner,ai_recommendation,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?)",
+                ("AUTO-" + uuid.uuid4().hex[:10], name, form.get("description", ""), form.get("trigger_type", "manual"), form.get("action_type", "create_task"), "active", form.get("owner", user["name"]), U(r"\u7b49\u5f85 AI \u63a5\u5165\u540e\u6839\u636e\u6267\u884c\u5386\u53f2\u4f18\u5316\u6d41\u7a0b\u3002"), user["id"], now, now),
+            )
+            conn.execute("insert into automation_runs(run_id,automation_id,status,message,created_at) values(?,?,?,?,?)", ("RUN-" + uuid.uuid4().hex[:10], cur.lastrowid, "pending", U(r"\u81ea\u52a8\u5316\u5df2\u521b\u5efa\uff0c\u7b49\u5f85\u89e6\u53d1\u5668\u6267\u884c\u3002"), now))
+        self.log_action(user, "automation_create", "automation", cur.lastrowid, name)
+        return self.redir("/automation")
+
+    def workflow_template_save(self):
+        user = self.current_user()
+        if not user:
+            return self.redir("/login")
+        if not self.role_can_manage(user):
+            return self.redir("/")
+        form = self.form()
+        now = ts()
+        with db() as conn:
+            conn.execute(
+                "insert into workflow_templates(template_id,name,description,trigger_type,steps_json,owner,status,ai_recommendation,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?)",
+                ("WF-" + uuid.uuid4().hex[:10], form.get("name", U(r"\u672a\u547d\u540d\u6d41\u7a0b")), form.get("description", ""), form.get("trigger_type", "manual"), json.dumps(csv_values(form.get("steps", "")), ensure_ascii=False), form.get("owner", user["name"]), form.get("status", "draft"), form.get("ai_recommendation", ""), user["id"], now, now),
+            )
+        return self.redir("/automation")
+
+    def api_automation_get(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if not self.role_can_manage(user):
+            return self.json_out({"ok": False, "message": "no permission"}, code=403)
+        data = self.automation_summary()
+        if path == "/api/automation":
+            return self.json_out({"ok": True, "dashboard": {"running": data["running"], "pending": data["pending"], "failed": data["failed"], "daily_jobs": data["daily_jobs"], "triggers": data["triggers"], "actions": data["actions"]}, "automations": [row_dict(r) for r in data["automations"]]})
+        if path == "/api/workflows":
+            return self.json_out({"ok": True, "templates": [row_dict(r) for r in data["templates"]]})
+        if path == "/api/notifications":
+            return self.json_out({"ok": True, "notifications": [row_dict(r) for r in data["notifications"]]})
+        return self.json_out({"ok": False, "message": "unknown automation api"}, code=404)
+
+    def api_automation_post(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if not self.role_can_manage(user):
+            return self.json_out({"ok": False, "message": "no permission"}, code=403)
+        form = self.form()
+        now = ts()
+        if path == "/api/automation":
+            with db() as conn:
+                cur = conn.execute(
+                    "insert into automations(automation_id,name,description,trigger_type,action_type,status,owner,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?)",
+                    ("AUTO-" + uuid.uuid4().hex[:10], form.get("name", U(r"\u672a\u547d\u540d\u81ea\u52a8\u5316")), form.get("description", ""), form.get("trigger_type", "manual"), form.get("action_type", "create_task"), form.get("status", "draft"), form.get("owner", user["name"]), user["id"], now, now),
+                )
+            return self.json_out({"ok": True, "automation_id": cur.lastrowid})
+        if path == "/api/workflows":
+            with db() as conn:
+                cur = conn.execute(
+                    "insert into workflow_templates(template_id,name,description,trigger_type,steps_json,owner,status,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?)",
+                    ("WF-" + uuid.uuid4().hex[:10], form.get("name", U(r"\u672a\u547d\u540d\u6d41\u7a0b")), form.get("description", ""), form.get("trigger_type", "manual"), json.dumps(csv_values(form.get("steps", "")), ensure_ascii=False), form.get("owner", user["name"]), form.get("status", "draft"), user["id"], now, now),
+                )
+            return self.json_out({"ok": True, "workflow_template_id": cur.lastrowid})
+        return self.json_out({"ok": False, "message": "unknown automation api"}, code=404)
 
 
 if __name__ == "__main__":

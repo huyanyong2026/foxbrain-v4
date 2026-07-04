@@ -54,23 +54,15 @@
 - `POST /api/tasks/{id}/complete`
 - `GET /api/health`
 
-Task005 APIs return safe empty structures when real SAP B1 data is unavailable.
+## Task006 Automation API
 
-## AI Query Response
+- `GET /api/automation`
+- `POST /api/automation`
+- `GET /api/workflows`
+- `POST /api/workflows`
+- `GET /api/notifications`
 
-```json
-{
-  "answer": "安全回答或等待接入提示",
-  "confidence": "retrieval_ready",
-  "cited_documents": [],
-  "cited_chunks": [],
-  "cited_sap_records": [],
-  "related_objects": [],
-  "generated_at": 0,
-  "model_name": "not_connected",
-  "limitations": []
-}
-```
+Automation APIs return safe placeholders when n8n, Dify, Enterprise WeChat, SMS, or SAP event triggers are not configured.
 
 ## Future API
 

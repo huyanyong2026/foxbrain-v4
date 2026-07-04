@@ -22,12 +22,18 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [14_ARCHIVE_ENGINE.md](14_ARCHIVE_ENGINE.md)
 - [15_DEPLOYMENT.md](15_DEPLOYMENT.md)
 - [16_GIT_STANDARD.md](16_GIT_STANDARD.md)
+- [18_AI_CEO_DAILY_BRIEFING.md](18_AI_CEO_DAILY_BRIEFING.md)
+- [19_BUSINESS_COCKPIT.md](19_BUSINESS_COCKPIT.md)
+- [20_TASK_CENTER.md](20_TASK_CENTER.md)
+- [21_OSPREY_PRICING_RISK.md](21_OSPREY_PRICING_RISK.md)
+- [22_AUTOMATION_ENGINE.md](22_AUTOMATION_ENGINE.md)
 
 ## Codex Tasks
 
 - [Task001](CODEX_TASKS/Task001/README.md)
 - [Task003 Knowledge Engine](CODEX_TASKS/Task003_Knowledge_Engine.md)
 - [Task005 Production AI CEO Cockpit](CODEX_TASKS/Task005_Production_AI_CEO_Cockpit.md)
+- [Task006 Automation Engine](CODEX_TASKS/Task006_Automation_Engine.md)
 
 Future tasks should use folders:
 

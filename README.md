@@ -82,6 +82,18 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - Production deployment documentation
 - Mobile-first card experience preserved
 
+## V4 Task006 Completed
+
+- AI Automation Center
+- Workflow template framework
+- Trigger manager placeholders
+- AI action framework
+- Execution history
+- Notification Center
+- Daily automation placeholders
+- Automation APIs
+- Health check now reports automation engine status
+
 ## V4 Routes
 
 - `/`
@@ -100,6 +112,7 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - `/inventory/risk`
 - `/brands/osprey-risk`
 - `/tasks`
+- `/automation`
 - `/system/health`
 - `/agents`
 - `/workflow`
@@ -116,6 +129,9 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - `GET /api/ai-ceo/daily-briefing`
 - `GET /api/business/cockpit`
 - `GET /api/tasks`
+- `GET /api/automation`
+- `GET /api/workflows`
+- `GET /api/notifications`
 
 ## Security
 
