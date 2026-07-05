@@ -1,0 +1,17 @@
+services:
+  foxbrain-web:
+    restart: always
+  foxbrain-api:
+    restart: always
+  foxbrain-worker:
+    restart: always
+  postgres:
+    restart: always
+  redis:
+    restart: always
+  minio:
+    restart: always
+  qdrant:
+    restart: always
+  nginx:
+    restart: always

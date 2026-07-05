@@ -1,142 +1,154 @@
-# FoxBrain Cloud Edition Deploy
+# FoxBrain Cloud Edition 云端部署说明
 
-This guide deploys FoxBrain V4 Cloud Edition to an Ubuntu Tencent Cloud server.
+这份说明给非技术老板也能看懂：FoxBrain 部署到腾讯云后，系统运行在云服务器上，不依赖你的个人电脑。
 
-## Server Requirements
+## 1. 什么是云端运行
 
-- Ubuntu 22.04 or newer
-- 2 CPU / 4 GB RAM minimum
-- 20 GB disk minimum
-- Security group open for the port you publish, normally `80/443` through a reverse proxy or `8088` for direct testing
+```text
+用户手机/电脑
+  -> https://huyan.vafox.com
+  -> Nginx / HTTPS
+  -> FoxBrain Web
+  -> FoxBrain API
+  -> PostgreSQL / Redis / MinIO / Qdrant
+  -> AI Agent / Knowledge Engine / SAP Sync / n8n / Dify / Wiki.js
+```
 
-## One-command Install
+你的电脑关机后，腾讯云服务器仍然 24 小时运行。
+
+## 2. Codex、GitHub、腾讯云的关系
+
+```text
+老板提出需求
+  -> Codex 开发
+  -> 提交 GitHub
+  -> GitHub Actions 自动通知服务器
+  -> 腾讯云服务器自动 pull
+  -> Docker 自动重建
+  -> FoxBrain 自动升级
+```
+
+## 3. 首次部署
+
+在全新 Ubuntu 服务器执行：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/huyanyong2026/foxbrain-v4/main/install.sh -o install.sh
 chmod +x install.sh
-sudo APP_DIR=/opt/foxbrain-v4 REPO_URL=https://github.com/huyanyong2026/foxbrain-v4.git ./install.sh
+sudo APP_DIR=/opt/foxbrain REPO_URL=https://github.com/huyanyong2026/foxbrain-v4.git ./install.sh
 ```
 
-Then edit:
+编辑服务器环境变量：
 
 ```bash
-sudo nano /opt/foxbrain-v4/.env
+sudo nano /opt/foxbrain/.env
 ```
 
-Never put real passwords in GitHub.
+真实密码只放服务器 `.env`，不要放 GitHub。
 
-## Start / Stop
+## 4. 日常升级
 
 ```bash
-cd /opt/foxbrain-v4
-sudo docker compose up -d --build
-sudo docker compose logs -f
-sudo docker compose down
+cd /opt/foxbrain
+bash deploy.sh
 ```
 
-## Health Check
+配置 GitHub Actions 后，推送 `main` 分支会自动部署。
+
+## 5. 查看系统是否正常
 
 ```bash
-curl http://127.0.0.1:8088/api/health
+cd /opt/foxbrain
+docker compose ps
+bash healthcheck.sh
 ```
 
-Browser test:
+## 6. 重启系统
+
+```bash
+cd /opt/foxbrain
+docker compose restart
+```
+
+## 7. 备份
+
+```bash
+cd /opt/foxbrain
+bash backup.sh
+```
+
+自动备份时间：每天 03:00。
+
+## 8. 恢复
+
+```bash
+cd /opt/foxbrain
+bash restore.sh /opt/foxbrain/backups/备份目录名
+```
+
+## 9. Nginx 与域名
+
+配置文件：
 
 ```text
-http://SERVER_IP:8088
+infra/nginx/huyan.vafox.com.conf
 ```
 
-## Nginx Reverse Proxy
-
-Install Nginx:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y nginx
-```
-
-Copy the example config:
-
-```bash
-sudo cp /opt/foxbrain-v4/deploy/nginx/foxbrain.conf.example /etc/nginx/sites-available/foxbrain
-sudo ln -sf /etc/nginx/sites-available/foxbrain /etc/nginx/sites-enabled/foxbrain
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-Then visit:
+安装脚本会复制到：
 
 ```text
-http://huyan.vafox.com
+/etc/nginx/sites-available/foxbrain
 ```
 
-For HTTPS after DNS points to the server:
+默认由 Docker Compose 里的 `nginx` 服务发布 80/443 端口。宿主机 Nginx 会保留配置文件，但默认停止，避免端口冲突。
+
+如果要启用 HTTPS：
 
 ```bash
 sudo apt-get install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d huyan.vafox.com
 ```
 
-Nginx forwards traffic to the Docker container on `127.0.0.1:8088`.
+## 10. 手机如何访问
 
-## Persistent Data
+手机浏览器打开：
 
-Docker volumes keep runtime data:
-
-- `foxbrain_portal`: SQLite database, secret key, uploads
-- `foxbrain_sap_sync`: SAP summary files
-- `./logs`: deployment and SAP sync logs
-
-## Long-running Cloud Behavior
-
-The service runs on the Tencent Cloud server, not on your personal computer.
-
-`docker-compose.yml` uses:
-
-```yaml
-restart: always
+```text
+https://huyan.vafox.com
 ```
 
-So FoxBrain restarts automatically after:
+## 11. 员工如何使用
 
-- container crash
-- Docker restart
-- Ubuntu server reboot
+员工注册账号后，需要管理员审核通过，才能登录使用。
 
-Your computer can be turned off after deployment. The cloud server keeps running independently.
+## 12. 未来接入 SAP / Dify / n8n / Wiki.js
 
-## SAP Nightly Sync
+- SAP：通过 `.env` 配置 `SAP_HOST`、`SAP_USER`、`SAP_PASSWORD`
+- n8n：Docker Compose 已预留 optional profile
+- Dify：先预留占位，后续按官方部署拆分服务
+- Wiki.js：Docker Compose 已预留 optional profile
 
-`install.sh` installs a cron job:
+优先保证 FoxBrain 云端稳定运行，再逐步接入这些系统。
 
-```cron
-0 22 * * * cd /opt/foxbrain-v4 && docker compose exec -T foxbrain python sync_sap_b1.py --trigger scheduled_22_00 >> /opt/foxbrain-v4/logs/sap_sync.log 2>&1
-```
+## 13. 常见故障
 
-Required safe environment variables are in `.env.example`.
-
-## GitHub Actions Deployment
-
-Create repository secrets:
-
-- `CLOUD_HOST`: server IP or domain
-- `CLOUD_USER`: usually `ubuntu`
-- `CLOUD_SSH_KEY`: private SSH key with access to the server
-- `CLOUD_APP_DIR`: optional, defaults to `/opt/foxbrain-v4`
-
-Push to `main`, then GitHub Actions deploys automatically.
-
-## Rollback
+查看日志：
 
 ```bash
-cd /opt/foxbrain-v4
-sudo git log --oneline -5
-sudo git checkout <commit>
-sudo docker compose up -d --build
+cd /opt/foxbrain
+docker compose logs -f
 ```
 
-To disable SAP scheduled sync:
+重新部署：
 
 ```bash
-sudo rm -f /etc/cron.d/foxbrain-sap-sync
+cd /opt/foxbrain
+bash deploy.sh
+```
+
+检查健康：
+
+```bash
+cd /opt/foxbrain
+bash healthcheck.sh
 ```

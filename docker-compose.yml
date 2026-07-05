@@ -1,10 +1,12 @@
+name: foxbrain
+
 services:
-  foxbrain:
+  foxbrain-web:
     build:
       context: .
       dockerfile: Dockerfile
     image: foxbrain-v4:cloud
-    container_name: foxbrain-v4
+    container_name: foxbrain-web
     restart: always
     env_file:
       - .env
@@ -13,23 +15,194 @@ services:
       SAP_SYNC_BASE: /data/firefox-sap-sync
       SAP_SUMMARY_FILE: /data/firefox-sap-sync/latest_summary.json
       HOST: 0.0.0.0
-      PORT: 8088
-      APP_TIMEZONE: Asia/Shanghai
-      SAP_SYNC_ENABLED: "true"
-      SAP_SYNC_TIME: "22:00"
-    ports:
-      - "8088:8088"
+      PORT: 3000
+      APP_TIMEZONE: ${TIMEZONE:-Asia/Shanghai}
+    expose:
+      - "3000"
     volumes:
       - foxbrain_portal:/data/firefox-portal
       - foxbrain_sap_sync:/data/firefox-sap-sync
       - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8088/api/health"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/api/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 20s
 
+  foxbrain-api:
+    image: foxbrain-v4:cloud
+    container_name: foxbrain-api
+    restart: always
+    env_file:
+      - .env
+    environment:
+      APP_DIR: /data/firefox-portal
+      SAP_SYNC_BASE: /data/firefox-sap-sync
+      SAP_SUMMARY_FILE: /data/firefox-sap-sync/latest_summary.json
+      HOST: 0.0.0.0
+      PORT: 8000
+      APP_TIMEZONE: ${TIMEZONE:-Asia/Shanghai}
+    command: ["python", "portal_v2.py"]
+    expose:
+      - "8000"
+    volumes:
+      - foxbrain_portal:/data/firefox-portal
+      - foxbrain_sap_sync:/data/firefox-sap-sync
+      - ./logs:/app/logs
+    depends_on:
+      foxbrain-web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  foxbrain-worker:
+    image: foxbrain-v4:cloud
+    container_name: foxbrain-worker
+    restart: always
+    env_file:
+      - .env
+    environment:
+      APP_DIR: /data/firefox-portal
+      SAP_SYNC_BASE: /data/firefox-sap-sync
+      SAP_SUMMARY_FILE: /data/firefox-sap-sync/latest_summary.json
+      APP_TIMEZONE: ${TIMEZONE:-Asia/Shanghai}
+    command: ["python", "infra/scripts/cloud_worker.py"]
+    volumes:
+      - foxbrain_portal:/data/firefox-portal
+      - foxbrain_sap_sync:/data/firefox-sap-sync
+      - ./logs:/app/logs
+    depends_on:
+      foxbrain-web:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: foxbrain-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-foxbrain}
+      POSTGRES_USER: ${POSTGRES_USER:-foxbrain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_strong_password}
+    volumes:
+      - foxbrain_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-foxbrain} -d ${POSTGRES_DB:-foxbrain}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: foxbrain-redis
+    restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - foxbrain_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:RELEASE.2025-01-20T14-49-07Z
+    container_name: foxbrain-minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-foxbrain}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change_me_minio_password}
+    command: ["server", "/data", "--console-address", ":9001"]
+    expose:
+      - "9000"
+      - "9001"
+    volumes:
+      - foxbrain_minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.5
+    container_name: foxbrain-qdrant
+    restart: always
+    expose:
+      - "6333"
+    volumes:
+      - foxbrain_qdrant:/qdrant/storage
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: foxbrain-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/huyan.vafox.com.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./data/certbot/www:/var/www/certbot
+      - ./data/certbot/conf:/etc/letsencrypt
+    depends_on:
+      foxbrain-web:
+        condition: service_healthy
+      foxbrain-api:
+        condition: service_healthy
+
+  n8n:
+    image: n8nio/n8n:1.75.2
+    container_name: foxbrain-n8n
+    restart: always
+    profiles:
+      - optional
+    environment:
+      N8N_HOST: n8n.${DOMAIN:-huyan.vafox.com}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: https
+      GENERIC_TIMEZONE: ${TIMEZONE:-Asia/Shanghai}
+    volumes:
+      - foxbrain_n8n:/home/node/.n8n
+
+  dify:
+    image: nginx:1.27-alpine
+    container_name: foxbrain-dify-placeholder
+    restart: always
+    profiles:
+      - optional
+    command: ["nginx", "-g", "daemon off;"]
+
+  wikijs:
+    image: ghcr.io/requarks/wiki:2
+    container_name: foxbrain-wikijs
+    restart: always
+    profiles:
+      - optional
+    environment:
+      DB_TYPE: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-foxbrain}
+      DB_PASS: ${POSTGRES_PASSWORD:-change_me_strong_password}
+      DB_NAME: ${POSTGRES_DB:-foxbrain}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   foxbrain_portal:
   foxbrain_sap_sync:
+  foxbrain_postgres:
+  foxbrain_redis:
+  foxbrain_minio:
+  foxbrain_qdrant:
+  foxbrain_n8n:

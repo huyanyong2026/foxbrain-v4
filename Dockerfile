@@ -18,13 +18,14 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY portal_v2.py sync_sap_b1.py sap_b1_sync_page.md wiki_ai_plan_content.json README.md /app/
+COPY infra/scripts /app/infra/scripts
 COPY docs /app/docs
 
 RUN mkdir -p /data/firefox-portal/uploads /data/firefox-sap-sync /app/logs
 
-EXPOSE 8088
+EXPOSE 3000 8000 8088
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD curl -fsS http://127.0.0.1:8088/api/health || exit 1
+  CMD-SHELL curl -fsS "http://127.0.0.1:${PORT:-8088}/api/health" || exit 1
 
 CMD ["python", "portal_v2.py"]
