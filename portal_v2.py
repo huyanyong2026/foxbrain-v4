@@ -5192,7 +5192,18 @@ class App(BaseHTTPRequestHandler):
             checks["sap_sync_scheduler_status"] = "error"
             checks["sap_sync_error"] = str(exc)
         checks["operating_system_layer_status"] = "ready"
-        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task022", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
+        checks["v5_enterprise_ai_os_status"] = "framework_ready"
+        checks["v6_autonomous_worker_status"] = "scheduled" if os.environ.get("APP_ENV", "production") else "local"
+        checks["worker_jobs"] = {
+            "sap_sync": os.environ.get("SAP_SYNC_TIME", "22:00"),
+            "knowledge_index": os.environ.get("KNOWLEDGE_INDEX_TIME", "02:00"),
+            "backup": os.environ.get("BACKUP_TIME", "03:00"),
+            "daily_report": os.environ.get("DAILY_REPORT_TIME", "08:00"),
+            "web_research": os.environ.get("WEB_RESEARCH_TIME", "10:00"),
+            "weekly_report": os.environ.get("WEEKLY_REPORT_TIME", "MON 09:00"),
+            "monthly_report_day": os.environ.get("MONTHLY_REPORT_DAY", "1"),
+        }
+        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V6 Autonomous Cloud Framework", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
 
     def api_health(self):
         return self.json_out(self.health_payload())

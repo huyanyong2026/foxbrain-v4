@@ -20,6 +20,14 @@ docker compose exec -T postgres pg_isready -U "${POSTGRES_USER:-foxbrain}" -d "$
 docker compose exec -T redis redis-cli ping >/dev/null || fail "Redis is not ready."
 curl -fsS http://127.0.0.1/minio/health/live >/dev/null || echo "WARN: MinIO public health path is not exposed through nginx. Check docker compose ps minio."
 
+docker compose ps foxbrain-worker | grep -E "running|Up" >/dev/null || fail "FoxBrain worker is not running."
+if [ -f "$APP_DIR/logs/worker.log" ]; then
+  echo "Recent worker logs:"
+  tail -n 20 "$APP_DIR/logs/worker.log"
+else
+  echo "WARN: worker.log not found yet. It should appear after the worker starts."
+fi
+
 DISK_USE="$(df / | awk 'NR==2 {print $5}' | tr -d '%')"
 if [ "$DISK_USE" -ge 85 ]; then
   fail "Disk usage is ${DISK_USE}%. Clean logs or expand disk."

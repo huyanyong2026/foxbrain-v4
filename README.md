@@ -366,6 +366,31 @@ V5 routes:
 
 V5 safety rule: AI and agents can draft, summarize, plan and request approval. They must not change prices, approve purchasing, approve finance/HR actions, export sensitive data or publish externally without human approval.
 
+## V6 Autonomous Cloud Execution
+
+V6 adds a cloud worker that keeps the system moving even when the desktop is off.
+
+Scheduled jobs:
+
+- SAP sync: 22:00
+- Knowledge index: 02:00
+- Backup: 03:00
+- Daily business report: 08:00
+- Web research: 10:00
+- Weekly report: Monday 09:00
+- Monthly report: day 1 at 09:00
+
+Implemented jobs run real scripts when available. Missing integrations are logged as placeholders and do not generate fake business conclusions.
+
+Top-level documents:
+
+- `CHANGELOG.md`
+- `ROADMAP.md`
+- `ARCHITECTURE.md`
+- `DEPLOYMENT.md`
+- `OPERATIONS.md`
+- `BACKUP_RESTORE.md`
+
 ## V4 Routes
 
 - `/`

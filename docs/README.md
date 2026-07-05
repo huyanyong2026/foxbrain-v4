@@ -62,6 +62,7 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [55_ROLE_DESKTOP.md](55_ROLE_DESKTOP.md)
 - [56_COMMAND_CENTER.md](56_COMMAND_CENTER.md)
 - [57_WORK_QUEUE_APPROVALS.md](57_WORK_QUEUE_APPROVALS.md)
+- [109_V6_AUTONOMOUS_CLOUD_EXECUTION.md](109_V6_AUTONOMOUS_CLOUD_EXECUTION.md)
 - [README_AUTO_UPDATE.md](README_AUTO_UPDATE.md)
 - [README_BACKUP_RESTORE.md](README_BACKUP_RESTORE.md)
 - [README_ENV.md](README_ENV.md)
@@ -89,6 +90,7 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [Task020 Systemization Platform Kernel](CODEX_TASKS/Task020_Systemization_Platform_Kernel.md)
 - [Task021 System Integration SAP Nightly Sync](CODEX_TASKS/Task021_System_Integration_SAP_Nightly_Sync.md)
 - [Task022 Operating System Layer](CODEX_TASKS/Task022_Operating_System_Layer.md)
+- [Task039 V6 Autonomous Cloud Execution](CODEX_TASKS/Task039_V6_Autonomous_Cloud_Execution.md)
 
 Future tasks should use folders:
 
