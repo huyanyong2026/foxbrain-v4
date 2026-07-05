@@ -44,3 +44,14 @@ Product Portfolio Engine helps classify products by their business role and deci
 ## Safety
 
 No product role should be treated as final without reviewed sales, margin and inventory evidence.
+
+## Task016 Inventory Decision Integration
+
+Product portfolio roles now feed the inventory decision flow:
+
+- Hero products can trigger replenishment review.
+- Traffic products need margin and cash pressure review.
+- Clearance products can trigger markdown review.
+- New test products should stay under observation before larger purchasing plans.
+
+The inventory decision page keeps these as structured suggestions until a manager reviews them.

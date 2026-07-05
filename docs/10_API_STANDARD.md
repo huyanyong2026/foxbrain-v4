@@ -222,6 +222,27 @@ Store growth APIs return templates and empty states when real store data is not 
 
 Brand growth APIs return templates and empty states when real SAP, supplier or research data is not available.
 
+## Task016 Inventory Purchasing Decision API
+
+- `GET /api/inventory-decision`
+- `GET /api/inventory-decision/risks`
+- `POST /api/inventory-decision/risks`
+- `GET /api/inventory-decision/replenishment`
+- `POST /api/inventory-decision/replenishment`
+- `GET /api/inventory-decision/transfers`
+- `POST /api/inventory-decision/transfers`
+- `GET /api/inventory-decision/markdowns`
+- `POST /api/inventory-decision/markdowns`
+- `GET /api/inventory-decision/future-orders`
+- `POST /api/inventory-decision/future-orders`
+- `GET /api/inventory-decision/purchasing-plans`
+- `POST /api/inventory-decision/purchasing-plans`
+- `GET /api/inventory-decision/cash-occupation`
+- `GET /api/inventory-decision/osprey`
+- `POST /api/inventory-decision/create-task`
+
+Inventory purchasing APIs create review suggestions only. They do not execute purchase orders, stock transfers or markdowns automatically.
+
 ## Future API
 
 - `POST /api/files/parse`

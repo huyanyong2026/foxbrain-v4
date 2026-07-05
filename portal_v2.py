@@ -1280,6 +1280,131 @@ create table if not exists supplier_brand_risks(
 """
         )
         conn.execute("create index if not exists idx_supplier_brand_risks_brand on supplier_brand_risks(brand_id, status)")
+        conn.execute(
+            """
+create table if not exists inventory_decision_risks(
+ id integer primary key autoincrement,
+ inventory_risk_id text unique,
+ object_type text,
+ object_id integer,
+ brand_id text,
+ product_id text,
+ store_id text,
+ risk_type text,
+ risk_level text,
+ inventory_quantity text,
+ inventory_amount text,
+ sales_velocity text,
+ days_of_inventory text,
+ margin_level text,
+ markdown_need text,
+ cash_occupation text,
+ recommendation text,
+ status text not null default 'draft',
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_inventory_decision_risks_type on inventory_decision_risks(risk_type, status)")
+        conn.execute(
+            """
+create table if not exists replenishment_suggestions(
+ id integer primary key autoincrement,
+ suggestion_id text unique,
+ store_id text,
+ brand_id text,
+ product_id text,
+ reason text,
+ sales_velocity text,
+ current_stock text,
+ suggested_quantity text,
+ priority text,
+ status text not null default 'draft',
+ created_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_replenishment_status on replenishment_suggestions(status)")
+        conn.execute(
+            """
+create table if not exists transfer_suggestions(
+ id integer primary key autoincrement,
+ transfer_id text unique,
+ from_store_id text,
+ to_store_id text,
+ brand_id text,
+ product_id text,
+ quantity text,
+ reason text,
+ urgency text,
+ status text not null default 'draft',
+ created_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_transfer_status on transfer_suggestions(status)")
+        conn.execute(
+            """
+create table if not exists markdown_suggestions(
+ id integer primary key autoincrement,
+ markdown_id text unique,
+ brand_id text,
+ product_id text,
+ store_id text,
+ current_discount text,
+ suggested_discount text,
+ reason text,
+ expected_result text,
+ risk_level text,
+ approval_status text not null default 'pending_review',
+ created_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_markdown_status on markdown_suggestions(approval_status)")
+        conn.execute(
+            """
+create table if not exists future_orders(
+ id integer primary key autoincrement,
+ future_order_id text unique,
+ supplier_id text,
+ brand_id text,
+ season text,
+ order_amount text,
+ deposit_amount text,
+ deposit_rate text,
+ expected_delivery_date text,
+ cancellation_risk text,
+ pricing_risk text,
+ rebate_assumption text,
+ status text not null default 'draft',
+ decision_status text not null default 'pending',
+ created_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_future_orders_brand on future_orders(brand_id, decision_status)")
+        conn.execute(
+            """
+create table if not exists purchasing_plans(
+ id integer primary key autoincrement,
+ purchasing_plan_id text unique,
+ title text not null,
+ supplier_id text,
+ brand_id text,
+ season text,
+ budget text,
+ planned_items text,
+ expected_margin text,
+ risk_assessment text,
+ status text not null default 'draft',
+ created_by integer,
+ created_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_purchasing_plans_status on purchasing_plans(status)")
         admin_email = os.environ.get("PORTAL_ADMIN_EMAIL", "vafox@126.com").strip().lower()
         existing_admin = conn.execute("select id from users where role='admin' limit 1").fetchone()
         if not existing_admin:
@@ -1436,6 +1561,10 @@ class App(BaseHTTPRequestHandler):
             return self.brand_growth_center(user)
         if path == "/inventory/risk":
             return self.inventory_risk(user)
+        if path == "/inventory-decision":
+            return self.inventory_decision_center(user)
+        if path == "/brands/osprey-inventory-decision":
+            return self.osprey_inventory_decision(user)
         if path == "/brands/osprey-risk":
             return self.osprey_risk(user)
         if path == "/tasks":
@@ -1512,6 +1641,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_store_growth_get(user, path)
         if path.startswith("/api/brand-growth"):
             return self.api_brand_growth_get(user, path)
+        if path.startswith("/api/inventory-decision"):
+            return self.api_inventory_decision_get(user, path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_get(user, path)
         if path.startswith("/api/sap/"):
@@ -1556,6 +1687,18 @@ class App(BaseHTTPRequestHandler):
             return self.brand_growth_portfolio_save()
         if path == "/brand-growth/pricing/save":
             return self.brand_growth_pricing_save()
+        if path == "/inventory-decision/risks/save":
+            return self.inventory_risk_save()
+        if path == "/inventory-decision/replenishment/save":
+            return self.replenishment_save()
+        if path == "/inventory-decision/transfers/save":
+            return self.transfer_suggestion_save()
+        if path == "/inventory-decision/markdowns/save":
+            return self.markdown_suggestion_save()
+        if path == "/inventory-decision/future-orders/save":
+            return self.future_order_save()
+        if path == "/inventory-decision/purchasing-plans/save":
+            return self.purchasing_plan_save()
         if path == "/automation/save":
             return self.automation_save()
         if path == "/workflows/save":
@@ -1590,6 +1733,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_store_growth_post(self.current_user(), path)
         if path.startswith("/api/brand-growth"):
             return self.api_brand_growth_post(self.current_user(), path)
+        if path.startswith("/api/inventory-decision"):
+            return self.api_inventory_decision_post(self.current_user(), path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_post(self.current_user(), path)
         if path.startswith("/api/"):
@@ -2518,6 +2663,7 @@ class App(BaseHTTPRequestHandler):
             self.card(U(r"\u591a\u667a\u80fd\u4f53\u534f\u540c"), U(r"AI CEO\u3001CFO\u3001\u5e93\u5b58\u3001\u54c1\u724c\u3001\u95e8\u5e97\u7b49\u667a\u80fd\u4f53\u534f\u540c\u5206\u6790\u3002"), "/agents/collaboration", "btn", can_manager),
             self.card(U(r"\u95e8\u5e97\u589e\u957f\u5f15\u64ce"), U(r"\u95e8\u5e97\u8bca\u65ad\u3001\u589e\u957f\u8ba1\u5212\u3001\u6d3b\u52a8\u3001\u4efb\u52a1\u6267\u884c\u548c\u590d\u76d8\u62a5\u544a\u3002"), "/store-growth", "btn green", can_manager),
             self.card(U(r"\u54c1\u724c\u589e\u957f\u5f15\u64ce"), U(r"\u54c1\u724c\u89d2\u8272\u3001\u4ea7\u54c1\u7ec4\u5408\u3001\u5b9a\u4ef7\u98ce\u9669\u3001\u5e93\u5b58\u77e9\u9635\u548c Osprey \u6298\u6263\u8bd5\u7b97\u3002"), "/brand-growth", "btn", can_manager),
+            self.card(U(r"\u5e93\u5b58\u91c7\u8d2d\u51b3\u7b56"), U(r"\u8865\u8d27\u3001\u8c03\u8d27\u3001\u964d\u4ef7\u3001\u6e05\u8d27\u3001\u671f\u8d27\u548c\u91c7\u8d2d\u51b3\u7b56\u6846\u67b6\u3002"), "/inventory-decision", "btn dark", can_manager),
             self.card(U(r"\u7cfb\u7edf\u7ba1\u7406"), U(r"\u5ba1\u6838\u5458\u5de5\u3001\u7981\u7528\u8d26\u53f7\u3001\u4fee\u6539\u89d2\u8272\u548c\u91cd\u7f6e\u5bc6\u7801\u3002"), "/admin", "btn dark", can_admin),
         ]
         info = '<div class="panel"><strong>{}</strong><p class="small">{}：{} ｜ {}：{} ｜ {}：{}</p></div>'.format(
@@ -3404,7 +3550,8 @@ class App(BaseHTTPRequestHandler):
         checks["enterprise_wechat_status"] = "placeholder"
         checks["store_growth_engine_status"] = "ready"
         checks["brand_growth_engine_status"] = "ready"
-        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task015", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
+        checks["inventory_decision_engine_status"] = "ready"
+        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task016", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
 
     def api_health(self):
         return self.json_out(self.health_payload())
@@ -4986,6 +5133,129 @@ class App(BaseHTTPRequestHandler):
 
     def api_brand_growth_put(self, user, path):
         return self.json_out({"ok": False, "message": "brand growth update endpoint reserved"}, code=501)
+
+    def can_manage_inventory_decision(self, user):
+        return bool(user and user["role"] in ("boss", "admin", "purchasing", "finance", "store_manager"))
+
+    def inventory_decision_empty(self):
+        return self.cockpit_data()["empty_message"]
+
+    def inventory_decision_center(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        if not self.can_manage_inventory_decision(user):
+            return self.dashboard(user)
+        with db() as conn:
+            risks = conn.execute("select * from inventory_decision_risks order by updated_at desc limit 40").fetchall()
+            replenishment = conn.execute("select * from replenishment_suggestions order by created_at desc limit 30").fetchall()
+            transfers = conn.execute("select * from transfer_suggestions order by created_at desc limit 30").fetchall()
+            markdowns = conn.execute("select * from markdown_suggestions order by created_at desc limit 30").fetchall()
+            futures = conn.execute("select * from future_orders order by created_at desc limit 30").fetchall()
+            purchases = conn.execute("select * from purchasing_plans order by created_at desc limit 30").fetchall()
+        risk_items = [r["brand_id"] + " · " + (r["risk_type"] or "") + " · " + (r["risk_level"] or "") for r in risks] or [self.inventory_decision_empty()]
+        replen_items = [r["store_id"] + " · " + r["brand_id"] + " · " + (r["suggested_quantity"] or "") + " · " + r["status"] for r in replenishment] or [U(r"\u6682\u65e0\u8865\u8d27\u5efa\u8bae\u3002")]
+        transfer_items = [t["from_store_id"] + " -> " + t["to_store_id"] + " · " + t["brand_id"] + " · " + t["status"] for t in transfers] or [U(r"\u6682\u65e0\u8c03\u8d27\u5efa\u8bae\u3002")]
+        markdown_items = [m["brand_id"] + " · " + (m["suggested_discount"] or "") + " · " + m["approval_status"] for m in markdowns] or [U(r"\u6682\u65e0\u964d\u4ef7/\u6e05\u8d27\u5efa\u8bae\u3002")]
+        future_items = [f["brand_id"] + " · " + (f["season"] or "") + " · " + f["decision_status"] for f in futures] or [U(r"\u6682\u65e0\u671f\u8d27\u51b3\u7b56\u8bb0\u5f55\u3002")]
+        purchase_items = [p["title"] + " · " + (p["brand_id"] or "") + " · " + p["status"] for p in purchases] or [U(r"\u6682\u65e0\u91c7\u8d2d\u8ba1\u5212\u3002")]
+        body = f"""
+<div class="panel"><h2>{U(r'\u5e93\u5b58\u91c7\u8d2d\u51b3\u7b56\u5f15\u64ce')}</h2><p class="small">{U(r'\u7528\u4e8e\u8865\u8d27\u3001\u8c03\u8d27\u3001\u964d\u4ef7\u3001\u6e05\u8d27\u3001\u671f\u8d27\u548c\u91c7\u8d2d\u51b3\u7b56\u3002\u4e0d\u81ea\u52a8\u751f\u6210\u91c7\u8d2d\u5355\u6216\u6539\u4ef7\u3002')}</p></div>
+<div class="grid">
+  {self.card(U(r'\u5e93\u5b58\u98ce\u9669'), U(r'\u9ad8\u5e93\u5b58\u3001\u6ede\u9500\u3001\u4f4e\u6bdb\u5229\u3001\u5b63\u8282\u3001\u73b0\u91d1\u6d41\u548c\u4f9b\u5e94\u5546\u98ce\u9669\u3002'), '#risk-form', 'btn', True)}
+  {self.card(U(r'\u8865\u8d27\u5efa\u8bae'), U(r'\u6839\u636e\u95e8\u5e97\u3001\u54c1\u724c\u3001\u4ea7\u54c1\u548c\u9500\u552e\u901f\u5ea6\u5efa\u7acb\u8865\u8d27\u8349\u6848\u3002'), '#replen-form', 'btn green', True)}
+  {self.card(U(r'Osprey \u5e93\u5b58\u51b3\u7b56'), U(r'\u671f\u8d27\u3001\u8fd4\u70b9\u3001\u6298\u6263\u3001\u73b0\u91d1\u5360\u7528\u548c\u4ef7\u683c\u98ce\u9669\u4e13\u9898\u3002'), '/brands/osprey-inventory-decision', 'btn orange', True)}
+</div>
+<div class="split"><div class="panel"><h2>{U(r'\u5e93\u5b58\u98ce\u9669')}</h2>{self.bullets(risk_items)}</div><div class="panel"><h2>{U(r'\u8865\u8d27\u5efa\u8bae')}</h2>{self.bullets(replen_items)}</div></div>
+<div class="split"><div class="panel"><h2>{U(r'\u8c03\u8d27\u5efa\u8bae')}</h2>{self.bullets(transfer_items)}</div><div class="panel"><h2>{U(r'\u964d\u4ef7\u6e05\u8d27')}</h2>{self.bullets(markdown_items)}</div></div>
+<div class="split"><div class="panel"><h2>{U(r'\u671f\u8d27\u51b3\u7b56')}</h2>{self.bullets(future_items)}</div><div class="panel"><h2>{U(r'\u91c7\u8d2d\u8ba1\u5212')}</h2>{self.bullets(purchase_items)}</div></div>
+<div class="split">
+  <div id="risk-form" class="panel form"><h2>{U(r'\u65b0\u5efa\u5e93\u5b58\u98ce\u9669')}</h2><form method="post" action="/inventory-decision/risks/save"><label>{U(r'\u54c1\u724c')}</label><input name="brand_id"><label>{U(r'\u4ea7\u54c1')}</label><input name="product_id"><label>{T['store']}</label><input name="store_id"><label>{U(r'\u98ce\u9669\u7c7b\u578b')}</label><input name="risk_type" placeholder="high_inventory / slow_moving / price_risk"><label>{U(r'\u5efa\u8bae')}</label><textarea name="recommendation"></textarea><p><button>{U(r'\u4fdd\u5b58\u98ce\u9669')}</button></p></form></div>
+  <div id="replen-form" class="panel form"><h2>{U(r'\u65b0\u5efa\u8865\u8d27\u5efa\u8bae')}</h2><form method="post" action="/inventory-decision/replenishment/save"><label>{T['store']}</label><input name="store_id"><label>{U(r'\u54c1\u724c')}</label><input name="brand_id"><label>{U(r'\u4ea7\u54c1')}</label><input name="product_id"><label>{U(r'\u5efa\u8bae\u6570\u91cf')}</label><input name="suggested_quantity"><label>{U(r'\u539f\u56e0')}</label><textarea name="reason"></textarea><p><button>{U(r'\u4fdd\u5b58\u8865\u8d27\u5efa\u8bae')}</button></p></form></div>
+</div>"""
+        self.out(layout(U(r"\u5e93\u5b58\u91c7\u8d2d\u51b3\u7b56"), body, user=user, wide=True))
+
+    def inventory_insert(self, table, cols, values, action, target_type):
+        user = self.current_user()
+        if not user:
+            return self.redir("/login")
+        if not self.can_manage_inventory_decision(user):
+            return self.redir("/")
+        form = self.form()
+        vals = [values.get(c, form.get(c, "")) for c in cols]
+        with db() as conn:
+            cur = conn.execute(f"insert into {table}({','.join(cols)}) values({','.join('?' for _ in cols)})", vals)
+        self.log_action(user, action, target_type, cur.lastrowid, "")
+        return self.redir("/inventory-decision")
+
+    def inventory_risk_save(self):
+        now = ts()
+        return self.inventory_insert("inventory_decision_risks", ["inventory_risk_id","brand_id","product_id","store_id","risk_type","risk_level","recommendation","status","created_at","updated_at"], {"inventory_risk_id":"IR-"+uuid.uuid4().hex[:10],"risk_level":"unknown","status":"draft","created_at":now,"updated_at":now}, "inventory_risk_created", "inventory_risk")
+
+    def replenishment_save(self):
+        now = ts()
+        return self.inventory_insert("replenishment_suggestions", ["suggestion_id","store_id","brand_id","product_id","reason","suggested_quantity","priority","status","created_at"], {"suggestion_id":"REP-"+uuid.uuid4().hex[:10],"priority":"normal","status":"draft","created_at":now}, "replenishment_created", "replenishment")
+
+    def transfer_suggestion_save(self):
+        now = ts()
+        return self.inventory_insert("transfer_suggestions", ["transfer_id","from_store_id","to_store_id","brand_id","product_id","quantity","reason","urgency","status","created_at"], {"transfer_id":"TR-"+uuid.uuid4().hex[:10],"urgency":"normal","status":"draft","created_at":now}, "transfer_created", "transfer")
+
+    def markdown_suggestion_save(self):
+        now = ts()
+        return self.inventory_insert("markdown_suggestions", ["markdown_id","brand_id","product_id","store_id","current_discount","suggested_discount","reason","expected_result","risk_level","approval_status","created_at"], {"markdown_id":"MD-"+uuid.uuid4().hex[:10],"risk_level":"review","approval_status":"pending_review","created_at":now}, "markdown_created", "markdown")
+
+    def future_order_save(self):
+        now = ts()
+        return self.inventory_insert("future_orders", ["future_order_id","supplier_id","brand_id","season","order_amount","deposit_amount","deposit_rate","expected_delivery_date","cancellation_risk","pricing_risk","rebate_assumption","status","decision_status","created_at"], {"future_order_id":"FO-"+uuid.uuid4().hex[:10],"status":"draft","decision_status":"pending","created_at":now}, "future_order_created", "future_order")
+
+    def purchasing_plan_save(self):
+        user = self.current_user()
+        now = ts()
+        return self.inventory_insert("purchasing_plans", ["purchasing_plan_id","title","supplier_id","brand_id","season","budget","planned_items","expected_margin","risk_assessment","status","created_by","created_at"], {"purchasing_plan_id":"PP-"+uuid.uuid4().hex[:10],"status":"draft","created_by":user["id"] if user else None,"created_at":now}, "purchasing_plan_created", "purchasing_plan")
+
+    def osprey_inventory_decision(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        if not self.can_manage_inventory_decision(user):
+            return self.dashboard(user)
+        body = f"""<div class="panel"><h2>Osprey {U(r'\u5e93\u5b58\u51b3\u7b56')}</h2><p class="small">{U(r'\u4e13\u9879\u5904\u7406 Osprey \u671f\u8d27\u3001\u5e93\u5b58\u3001\u6298\u6263\u3001\u8fd4\u70b9\u3001\u73b0\u91d1\u5360\u7528\u548c\u4ef7\u683c\u4f53\u7cfb\u98ce\u9669\u3002\u4e0d\u586b\u771f\u5b9e\u6570\u636e\u65f6\u4e0d\u4ea7\u751f\u7ed3\u8bba\u3002')}</p></div>
+<div class="split"><div class="panel"><h2>{U(r'\u51b3\u7b56\u6846\u67b6')}</h2>{self.bullets([U(r'\u5f53\u524d\u5e93\u5b58\uff1a\u7b49\u5f85 SAP \u660e\u7ec6'), U(r'\u671f\u8d27\u98ce\u9669\uff1a\u8ba2\u91d1\u3001\u63d0\u8d27\u3001\u53d6\u6d88\u53ef\u80fd\u6027'), U(r'\u6298\u6263\u573a\u666f\uff1a59 / 60 / 62 / 65 \u6298'), U(r'\u8fd4\u70b9\u4f9d\u8d56\uff1a\u4e0d\u672a\u5ba1\u6838\u5373\u8ba4\u5b9a'), U(r'\u73b0\u91d1\u5360\u7528\uff1a\u7b49\u5f85\u8d22\u52a1\u6570\u636e')])}</div><div class="panel"><h2>{U(r'\u591a\u667a\u80fd\u4f53\u5efa\u8bae')}</h2>{self.empty_state(U(r'\u5df2\u9884\u7559 AI CEO / CFO / \u5e93\u5b58 / \u54c1\u724c / \u7814\u7a76\u5458\u534f\u540c\u5206\u6790\uff0c\u9700\u771f\u5b9e\u6570\u636e\u540e\u8f93\u51fa\u3002'))}</div></div>
+<div class="panel"><h2>{U(r'\u4efb\u52a1\u751f\u6210')}</h2><form method="post" action="/api/inventory-decision/create-task"><input type="hidden" name="brand_id" value="Osprey"><label>{U(r'\u4efb\u52a1\u6807\u9898')}</label><input name="title" value="Osprey \u5e93\u5b58\u4e0e\u671f\u8d27\u98ce\u9669\u590d\u6838"><p><button>{U(r'\u751f\u6210\u5f85\u529e\u4efb\u52a1')}</button></p></form></div>"""
+        self.out(layout("Osprey " + U(r"\u5e93\u5b58\u51b3\u7b56"), body, user=user, wide=True))
+
+    def api_inventory_decision_get(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if not self.can_manage_inventory_decision(user):
+            return self.json_out({"ok": False, "message": "no permission"}, code=403)
+        with db() as conn:
+            table_map = {"/api/inventory-decision/risks": ("inventory_decision_risks","risks"), "/api/inventory-decision/replenishment": ("replenishment_suggestions","replenishment"), "/api/inventory-decision/transfers": ("transfer_suggestions","transfers"), "/api/inventory-decision/markdowns": ("markdown_suggestions","markdowns"), "/api/inventory-decision/future-orders": ("future_orders","future_orders"), "/api/inventory-decision/purchasing-plans": ("purchasing_plans","purchasing_plans")}
+            if path == "/api/inventory-decision":
+                return self.json_out({"ok": True, "empty_message": self.inventory_decision_empty(), "sections": list(table_map.keys())})
+            if path in table_map:
+                table, key = table_map[path]
+                rows = conn.execute(f"select * from {table} order by id desc limit 100").fetchall()
+                return self.json_out({"ok": True, key: [row_dict(r) for r in rows]})
+            if path == "/api/inventory-decision/cash-occupation":
+                return self.json_out({"ok": True, "data": self.cockpit_data()["metrics"], "message": self.inventory_decision_empty()})
+            if path == "/api/inventory-decision/osprey":
+                return self.json_out({"ok": True, "template": "osprey inventory decision", "message": U(r"\u4ec5\u4f5c\u51b3\u7b56\u6846\u67b6\uff0c\u4e0d\u7f16\u9020 Osprey \u771f\u5b9e\u5e93\u5b58\u6216\u671f\u8d27\u6570\u636e\u3002")})
+        return self.json_out({"ok": False, "message": "unknown inventory decision api"}, code=404)
+
+    def api_inventory_decision_post(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if not self.can_manage_inventory_decision(user):
+            return self.json_out({"ok": False, "message": "no permission"}, code=403)
+        form = self.form()
+        now = ts()
+        if path == "/api/inventory-decision/create-task":
+            with db() as conn:
+                cur = conn.execute("insert into tasks(task_id,title,description,owner,related_object_type,related_object_id,priority,status,due_date,source_type,source_id,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)", ("TASK-" + uuid.uuid4().hex[:10], form.get("title", U(r"\u5e93\u5b58\u51b3\u7b56\u590d\u6838")), form.get("description", ""), form.get("owner", user["name"]), "inventory_decision", None, "high", "todo", form.get("due_date", ""), "inventory_decision", form.get("brand_id", ""), user["id"], now, now))
+            self.log_action(user, "inventory_task_generated", "task", cur.lastrowid, form.get("title", ""))
+            return self.json_out({"ok": True, "task_id": cur.lastrowid})
+        return self.json_out({"ok": False, "message": "inventory decision write endpoint reserved"}, code=501)
 
     def can_manage_content(self, user):
         return bool(user and user["role"] in ("boss", "admin", "store_manager", "employee", "purchasing"))

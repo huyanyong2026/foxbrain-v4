@@ -204,6 +204,20 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - Brand task generation framework
 - Health check now reports Brand Growth Engine status
 
+## V4 Task016 Completed
+
+- Inventory and Purchasing Decision Engine
+- Inventory risk model
+- Replenishment suggestion model
+- Transfer suggestion model
+- Markdown and clearance suggestion model
+- Future order tracking model
+- Purchasing plan model
+- Osprey inventory decision entry
+- Cash occupation placeholder
+- Inventory task generation framework
+- Health check now reports Inventory Decision Engine status
+
 ## V4 Routes
 
 - `/`
@@ -214,6 +228,8 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - `/mobile/review`
 - `/store-growth`
 - `/brand-growth`
+- `/inventory-decision`
+- `/brands/osprey-inventory-decision`
 - `/content`
 - `/business-overview`
 - `/stores`
@@ -341,6 +357,22 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - `GET /api/brand-growth/inventory-matrix`
 - `GET /api/brand-growth/supplier-risk`
 - `POST /api/brand-growth/create-tasks`
+- `GET /api/inventory-decision`
+- `GET /api/inventory-decision/risks`
+- `POST /api/inventory-decision/risks`
+- `GET /api/inventory-decision/replenishment`
+- `POST /api/inventory-decision/replenishment`
+- `GET /api/inventory-decision/transfers`
+- `POST /api/inventory-decision/transfers`
+- `GET /api/inventory-decision/markdowns`
+- `POST /api/inventory-decision/markdowns`
+- `GET /api/inventory-decision/future-orders`
+- `POST /api/inventory-decision/future-orders`
+- `GET /api/inventory-decision/purchasing-plans`
+- `POST /api/inventory-decision/purchasing-plans`
+- `GET /api/inventory-decision/cash-occupation`
+- `GET /api/inventory-decision/osprey`
+- `POST /api/inventory-decision/create-task`
 
 ## Security
 

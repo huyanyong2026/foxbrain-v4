@@ -52,3 +52,12 @@
 Osprey pricing risk is now linked to the Brand Growth Engine.
 
 The discount calculator remains a scenario tool only. It must not become a final pricing conclusion without reviewed cost, rebate, inventory, sales and supplier context.
+
+## Task016 Inventory Decision Integration
+
+Osprey now has a dedicated inventory decision entry:
+
+- `/brands/osprey-inventory-decision`
+- `GET /api/inventory-decision/osprey`
+
+The page connects Osprey pricing, rebate, future order and inventory cash pressure into one review surface. It remains a decision-support view and must not be treated as an automatic order or markdown instruction.
