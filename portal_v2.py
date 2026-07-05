@@ -2164,7 +2164,7 @@ class App(BaseHTTPRequestHandler):
             return self.api_brand_growth_get(user, path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_get(user, path)
-        if path.startswith(("/api/operating-loop", "/api/strategy", "/api/strategy-center", "/api/university", "/api/learning", "/api/growth-engine", "/api/digital-twin", "/api/decision-engine", "/api/kernel", "/api/data-fabric", "/api/data-intelligence", "/api/kpi", "/api/insights", "/api/trends", "/api/data-sources", "/api/data-catalog", "/api/data-lineage", "/api/data-quality", "/api/data-freshness", "/api/data-ai-ready", "/api/data-access", "/api/integrations", "/api/security", "/api/operations", "/api/sdk", "/api/extensions", "/api/marketplace", "/api/product", "/api/help", "/api/onboarding", "/api/feedback", "/api/action")):
+        if path.startswith(("/api/operating-loop", "/api/strategy", "/api/strategy-center", "/api/university", "/api/learning", "/api/growth-engine", "/api/executive-command-center", "/api/digital-twin", "/api/decision-engine", "/api/kernel", "/api/data-fabric", "/api/data-intelligence", "/api/kpi", "/api/insights", "/api/trends", "/api/data-sources", "/api/data-catalog", "/api/data-lineage", "/api/data-quality", "/api/data-freshness", "/api/data-ai-ready", "/api/data-access", "/api/integrations", "/api/security", "/api/operations", "/api/sdk", "/api/extensions", "/api/marketplace", "/api/product", "/api/help", "/api/onboarding", "/api/feedback", "/api/action")):
             return self.api_v5_get(user, path)
         if path.startswith("/api/sap/"):
             return self.sap_api_placeholder(user, path)
@@ -4966,6 +4966,7 @@ class App(BaseHTTPRequestHandler):
     def platform_modules(self):
         return [
             ("portal", U(r"\u4f01\u4e1a\u95e8\u6237"), "/portal", "system", "view_workspace"),
+            ("executive_command_center", "Executive Command Center", "/executive-command-center", "system", "boss"),
             ("ai_ceo", "AI CEO", "/ai-ceo", "ai", "boss"),
             ("business_cockpit", U(r"\u7ecf\u8425\u9a7e\u9a76\u8231"), "/business-overview", "ai", "boss"),
             ("jarvis", "Jarvis", "/jarvis", "ai", "view_workspace"),
@@ -6078,6 +6079,11 @@ class App(BaseHTTPRequestHandler):
         checks["growth_scorecard_status"] = "traceable"
         checks["store_brand_product_customer_growth_status"] = "contract_ready"
         checks["growth_recommendation_status"] = "explainable_source_traced"
+        checks["enterprise_pack_19_command_center_status"] = "framework_ready"
+        checks["executive_command_center_status"] = "unified_enterprise_management_entry"
+        checks["command_center_permission_status"] = "rbac_enforced"
+        checks["command_center_monitoring_status"] = "unified_health"
+        checks["ai_command_status"] = "approval_gated"
         checks["v6_autonomous_worker_status"] = "scheduled" if os.environ.get("APP_ENV", "production") else "local"
         checks["worker_jobs"] = {
             "sap_sync": os.environ.get("SAP_SYNC_TIME", "22:00"),
@@ -7349,6 +7355,7 @@ class App(BaseHTTPRequestHandler):
             "/data-intelligence": ("Data Intelligence", "Unified KPI and data service for dashboards, AI agents and decision engines.", ["Unified metrics", "KPI catalog", "Insight engine", "Data quality", "Trend APIs"], "/api/data-intelligence/framework", "Task052"),
             "/university": ("FoxBrain University", "Enterprise learning center with role paths, AI Tutor, certification and knowledge feedback.", ["Learning catalog", "Role paths", "AI Tutor", "Certification", "Progress", "Knowledge feedback"], "/api/university/framework", "Task056"),
             "/growth-engine": ("Enterprise Growth Engine", "Traceable growth scorecards for stores, brands, products and customers.", ["Growth scores", "Store growth", "Brand growth", "Product growth", "Customer growth", "Executive scorecard"], "/api/growth-engine/framework", "Task057"),
+            "/executive-command-center": ("Executive Command Center", "Unified executive entrance for cockpit, risk center, AI Command and system health.", ["Executive cockpit", "Risk center", "AI Command", "System health", "Module monitoring", "Unified governance"], "/api/executive-command-center/framework", "Task058"),
             "/system/apps": ("App Platform", "Built-in app registry and future plugin architecture.", ["Installed apps", "Available apps", "Permissions", "Settings", "Health", "Events"], "/api/apps", "Task032"),
             "/system/apps/developer": ("App Developer Guide", "Manifest, permission, event bus and data fabric rules for future apps.", ["Manifest", "Routes", "Permissions", "Events", "Settings", "Security"], "/api/apps/developer/template", "Task032"),
             "/integrations": ("Integration Hub", "Safe connector registry for SAP, AI providers, search, messaging and webhooks.", ["Connectors", "Credential status", "Sync jobs", "Webhooks", "AI providers", "Search providers"], "/api/integrations", "Task033"),
@@ -7468,6 +7475,8 @@ class App(BaseHTTPRequestHandler):
             return self.json_out(self.university_get(user, path))
         if path.startswith("/api/growth-engine"):
             return self.json_out(self.growth_engine_get(user, path))
+        if path.startswith("/api/executive-command-center"):
+            return self.json_out(self.executive_command_center_get(user, path))
         if path.startswith("/api/data-catalog"):
             return self.json_out({"ok": True, "datasets": self.v5_data_catalog()})
         if path.startswith("/api/data-quality"):
@@ -7643,6 +7652,151 @@ class App(BaseHTTPRequestHandler):
             "insight_engine_endpoint": "/api/insights/engine",
             "trend_endpoint": "/api/trends",
         }
+
+    def executive_command_dashboard_payload(self, user):
+        metrics = self.unified_metrics_service_payload(user)
+        dashboard = self.dashboard_service_payload(user, "ceo")
+        decisions = self.enterprise_decision_engine_payload(user)
+        growth = self.enterprise_growth_engine_payload(user)
+        strategy = self.ai_strategy_center_payload(user)
+        return {
+            "ok": True,
+            "service": "executive_command_dashboard",
+            "single_source_rule": "executive_dashboard_must_read_from_unified_metrics_service_and_shared_dashboard_service",
+            "metrics": metrics["metric_values"],
+            "freshness": metrics["freshness"],
+            "dashboard": dashboard,
+            "growth_scorecard": growth["executive_scorecard"],
+            "strategy_dashboard": strategy["dashboard"],
+            "top_recommendations": decisions["recommendations"][:3],
+            "basis": [
+                {"source": "unified_metrics_service", "field": "metric_values"},
+                {"source": "dashboard_service", "field": "ceo_dashboard"},
+                {"source": "enterprise_decision_engine", "field": "recommendations"},
+            ],
+            "limitations": metrics["limitations"],
+        }
+
+    def executive_risk_center_payload(self, user):
+        alerts = self.dashboard_alert_service_payload(user)
+        decision_risks = self.decision_risk_scoring_payload(user)
+        platform_risks = self.api_platform_get_risks_for_context()
+        return {
+            "ok": True,
+            "service": "executive_risk_center",
+            "rule": "executive_risk_center_uses_unified_risk_inputs_and_traceable_evidence",
+            "risk_inputs": {
+                "dashboard_alerts": alerts["alerts"],
+                "decision_risks": decision_risks["risk_scores"],
+                "platform_risks": platform_risks,
+            },
+            "triage_policy": [
+                "high_risk_price_contract_finance_external_publish_actions_require_human_approval",
+                "risk_items_must_show_basis_before_being_accepted_as_management_action",
+                "risk_status_changes_must_be_audited",
+            ],
+            "basis": [
+                {"source": "dashboard_alert_service", "field": "alerts"},
+                {"source": "decision_risk_scoring", "field": "risk_scores"},
+                {"source": "platform_risk_center", "field": "active_risks"},
+            ],
+        }
+
+    def executive_ai_command_payload(self, user):
+        command_palette = self.command_palette_payload(user)
+        approval_gate = self.decision_approval_gate_payload()
+        return {
+            "ok": True,
+            "service": "executive_ai_command",
+            "rule": "ai_command_can_draft_route_and_request_approval_but_must_not_bypass_permissions",
+            "commands": command_palette["commands"],
+            "agent_coordination": ["ai_agents", "workflow", "notifications", "decision_engine"],
+            "approval_gate": approval_gate,
+            "audit_contract": {
+                "required": True,
+                "event_types": ["ai_command_drafted", "ai_command_routed", "approval_requested", "approval_decision_recorded"],
+            },
+            "blocked_without_approval": ["price_change", "contract_commitment", "finance_payment", "external_publish", "sap_write_back"],
+        }
+
+    def executive_system_health_payload(self, user):
+        health = self.health_payload()
+        return {
+            "ok": True,
+            "service": "executive_system_health",
+            "rule": "system_health_rolls_up_all_modules_into_unified_monitoring",
+            "health": health,
+            "tracked_services": {
+                "sap_connectivity": health.get("sap_sync_last_status"),
+                "knowledge_indexing": health.get("knowledge_engine_status"),
+                "workflow_execution": health.get("automation_engine_status"),
+                "ai_services": health.get("multi_agent_engine_status"),
+                "api_availability": health.get("status"),
+            },
+            "worker_jobs": health.get("worker_jobs", {}),
+            "basis": [{"source": "/api/health", "field": "health_payload"}],
+        }
+
+    def executive_module_monitoring_payload(self, user):
+        role = user["role"]
+        permissions = self.security_rbac_payload()
+        data_model = self.unified_data_model_payload()
+        visible = [m for m in self.platform_modules() if self.app_permission_status(user, m[4]) == "allowed"]
+        return {
+            "ok": True,
+            "service": "executive_module_monitoring",
+            "rule": "all_modules_must_follow_unified_permissions_data_model_and_monitoring",
+            "role": role,
+            "visible_modules": [{"key": key, "name": name, "url": url, "group": group, "permission": perm} for key, name, url, group, perm in visible],
+            "rbac": permissions,
+            "canonical_entities": data_model["canonical_entities"],
+            "monitoring_contract": {
+                "health_endpoint": "/api/health",
+                "audit_required": True,
+                "default_deny": True,
+                "data_lineage_required": True,
+            },
+        }
+
+    def executive_command_center_payload(self, user):
+        return {
+            "ok": True,
+            "platform": "executive_command_center",
+            "purpose": "unified_enterprise_management_entry",
+            "unified_governance": {
+                "permission": "all_command_center_modules_follow_rbac_and_default_deny",
+                "data_model": "all_command_center_data_uses_unified_data_model_and_metrics_service",
+                "monitoring": "all_modules_report_into_unified_health_and_observability",
+                "approval": "high_risk_ai_commands_require_human_approval_before_execution",
+            },
+            "api_surface": [
+                "/api/executive-command-center/framework",
+                "/api/executive-command-center/dashboard",
+                "/api/executive-command-center/risks",
+                "/api/executive-command-center/ai-command",
+                "/api/executive-command-center/system-health",
+                "/api/executive-command-center/modules",
+                "/api/executive-command-center/monitoring",
+            ],
+            "cockpit": self.executive_command_dashboard_payload(user),
+            "risks": self.executive_risk_center_payload(user),
+            "ai_command": self.executive_ai_command_payload(user),
+            "system_health": self.executive_system_health_payload(user),
+            "module_monitoring": self.executive_module_monitoring_payload(user),
+        }
+
+    def executive_command_center_get(self, user, path):
+        if path.endswith("/dashboard"):
+            return self.executive_command_dashboard_payload(user)
+        if path.endswith("/risks"):
+            return self.executive_risk_center_payload(user)
+        if path.endswith("/ai-command"):
+            return self.executive_ai_command_payload(user)
+        if path.endswith("/system-health"):
+            return self.executive_system_health_payload(user)
+        if path.endswith("/modules") or path.endswith("/monitoring"):
+            return self.executive_module_monitoring_payload(user)
+        return self.executive_command_center_payload(user)
 
     def data_intelligence_get(self, user, path):
         if path in ("/api/data-intelligence", "/api/data-intelligence/framework"):

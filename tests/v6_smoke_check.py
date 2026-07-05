@@ -139,6 +139,13 @@ def test_enterprise_pack_routes_present():
         "/api/growth-engine/brand-product",
         "/api/growth-engine/customer-growth",
         "/api/growth-engine/executive-scorecard",
+        "/api/executive-command-center/framework",
+        "/api/executive-command-center/dashboard",
+        "/api/executive-command-center/risks",
+        "/api/executive-command-center/ai-command",
+        "/api/executive-command-center/system-health",
+        "/api/executive-command-center/modules",
+        "/api/executive-command-center/monitoring",
     ]:
         assert route in portal
 
@@ -408,6 +415,26 @@ def test_pack_growth_engine_present():
         assert phrase in portal
 
 
+def test_pack_executive_command_center_present():
+    portal = read("portal_v2.py")
+    for phrase in [
+        "executive_command_center_payload",
+        "executive_command_dashboard_payload",
+        "executive_risk_center_payload",
+        "executive_ai_command_payload",
+        "executive_system_health_payload",
+        "executive_module_monitoring_payload",
+        "executive_command_center_get",
+        "unified_enterprise_management_entry",
+        "all_command_center_modules_follow_rbac_and_default_deny",
+        "all_command_center_data_uses_unified_data_model_and_metrics_service",
+        "system_health_rolls_up_all_modules_into_unified_monitoring",
+        "ai_command_can_draft_route_and_request_approval_but_must_not_bypass_permissions",
+        "executive_risk_center_uses_unified_risk_inputs_and_traceable_evidence",
+    ]:
+        assert phrase in portal
+
+
 def test_production_deployment_files_present():
     for file_name in [
         "Dockerfile",
@@ -450,6 +477,7 @@ def test_enterprise_pack_docs_present():
         "docs/125_ENTERPRISE_PACK_16_AI_STRATEGY_CENTER.md",
         "docs/126_ENTERPRISE_PACK_17_FOXBRAIN_UNIVERSITY.md",
         "docs/127_ENTERPRISE_PACK_18_GROWTH_ENGINE.md",
+        "docs/128_ENTERPRISE_PACK_19_COMMAND_CENTER.md",
         "docs/SDK_EXTENSION_STANDARD.md",
         "docs/RELEASE_1_0_PRODUCTION_CHECKLIST.md",
         "docs/CODEX_TASKS/Task041_Pack02_SAP_AI_Connector.md",
@@ -469,5 +497,6 @@ def test_enterprise_pack_docs_present():
         "docs/CODEX_TASKS/Task055_Pack16_AI_Strategy_Center.md",
         "docs/CODEX_TASKS/Task056_Pack17_FoxBrain_University.md",
         "docs/CODEX_TASKS/Task057_Pack18_Growth_Engine.md",
+        "docs/CODEX_TASKS/Task058_Pack19_Command_Center.md",
     ]:
         assert (ROOT / doc).exists()
