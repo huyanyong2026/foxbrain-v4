@@ -181,6 +181,15 @@ services:
       - optional
     command: ["nginx", "-g", "daemon off;"]
 
+  ollama:
+    image: ollama/ollama:0.5.7
+    container_name: foxbrain-ollama-placeholder
+    restart: always
+    profiles:
+      - optional
+    volumes:
+      - foxbrain_ollama:/root/.ollama
+
   wikijs:
     image: ghcr.io/requarks/wiki:2
     container_name: foxbrain-wikijs
@@ -206,3 +215,4 @@ volumes:
   foxbrain_minio:
   foxbrain_qdrant:
   foxbrain_n8n:
+  foxbrain_ollama:

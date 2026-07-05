@@ -323,6 +323,49 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - AI OS Context
 - Health check now reports Operating System Layer status
 
+## V5 Cloud + Enterprise AI OS Upgrade
+
+This repository now includes the first V5 cloud-safe framework. The priority is stable cloud running, data safety, SAP sync, knowledge, digital twin, AI memory, decision center, agent runtime, workflow center and mobile action consoles.
+
+Cloud commands:
+
+```bash
+bash install.sh
+bash deploy.sh
+bash deploy.sh --pull
+bash deploy.sh --build
+bash deploy.sh --rollback
+bash backup.sh
+bash restore.sh /opt/foxbrain/backups/BACKUP_DIR
+bash healthcheck.sh
+docker compose up -d
+docker compose ps
+```
+
+V5 routes:
+
+- `/action/today`
+- `/action/boss`
+- `/action/store-manager`
+- `/action/employee`
+- `/operating-loop`
+- `/decision-center`
+- `/digital-twin`
+- `/ai-memory`
+- `/web-research-center`
+- `/strategy`
+- `/agents/marketplace`
+- `/agents/workflows`
+- `/agents/runtime`
+- `/data-fabric`
+- `/integrations`
+- `/security`
+- `/operations`
+- `/product`
+- `/help`
+
+V5 safety rule: AI and agents can draft, summarize, plan and request approval. They must not change prices, approve purchasing, approve finance/HR actions, export sensitive data or publish externally without human approval.
+
 ## V4 Routes
 
 - `/`

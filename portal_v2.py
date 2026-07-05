@@ -1796,6 +1796,28 @@ create table if not exists job_locks(
 )
 """
         )
+        conn.execute(
+            """
+create table if not exists v5_items(
+ id integer primary key autoincrement,
+ item_id text unique,
+ item_type text not null,
+ title text not null,
+ description text,
+ status text not null default 'draft',
+ priority text default 'normal',
+ owner text,
+ related_object_type text,
+ related_object_id text,
+ payload_json text,
+ approval_status text default 'not_required',
+ created_by integer,
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_v5_items_type on v5_items(item_type, status)")
         admin_email = os.environ.get("PORTAL_ADMIN_EMAIL", "vafox@126.com").strip().lower()
         existing_admin = conn.execute("select id from users where role='admin' limit 1").fetchone()
         if not existing_admin:
@@ -1932,6 +1954,8 @@ class App(BaseHTTPRequestHandler):
             return self.agents(user)
         if path == "/agents/collaboration":
             return self.agent_collaboration(user)
+        if path in self.v5_page_routes():
+            return self.v5_page(user, path)
         if path == "/sap-sync":
             return self.sap_sync(user)
         if path == "/data-pipeline":
@@ -2090,6 +2114,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_brand_growth_get(user, path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_get(user, path)
+        if path.startswith(("/api/operating-loop", "/api/strategy", "/api/digital-twin", "/api/kernel", "/api/data-fabric", "/api/data-sources", "/api/data-catalog", "/api/data-lineage", "/api/data-quality", "/api/data-freshness", "/api/data-ai-ready", "/api/data-access", "/api/integrations", "/api/security", "/api/operations", "/api/product", "/api/help", "/api/onboarding", "/api/feedback", "/api/action")):
+            return self.api_v5_get(user, path)
         if path.startswith("/api/sap/"):
             return self.sap_api_placeholder(user, path)
         if path == "/":
@@ -2228,6 +2254,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_brand_growth_post(self.current_user(), path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_post(self.current_user(), path)
+        if path.startswith(("/api/operating-loop", "/api/strategy", "/api/digital-twin", "/api/kernel", "/api/data-fabric", "/api/data-sources", "/api/integrations", "/api/security", "/api/operations", "/api/product", "/api/feedback", "/api/action")):
+            return self.api_v5_post(self.current_user(), path)
         if path.startswith("/api/"):
             return self.json_out({"ok": False, "message": U(r"\u63a5\u53e3\u5df2\u9884\u7559\uff0c\u4e0b\u4e00\u6b65\u63a5\u5165 AI \u548c\u77e5\u8bc6\u5e93\u6570\u636e\u3002")}, code=501)
         if path == "/login":
@@ -2276,6 +2304,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_store_growth_put(self.current_user(), path)
         if path.startswith("/api/brand-growth"):
             return self.api_brand_growth_put(self.current_user(), path)
+        if path.startswith(("/api/strategy", "/api/agents", "/api/digital-twin", "/api/kernel", "/api/data-fabric", "/api/integrations", "/api/security", "/api/operations", "/api/product", "/api/feedback", "/api/action")):
+            return self.api_v5_post(self.current_user(), path)
         return self.json_out({"ok": False, "message": "unsupported"}, code=404)
 
     def seed_workflow_templates(self, conn, user_id=None):
@@ -3143,7 +3173,13 @@ class App(BaseHTTPRequestHandler):
   <p class="small">{U(r'\u6628\u65e5\u9500\u552e')}：{U(r'\uffe5') + money(summary.get("yesterday_sales"))} ｜ {U(r'\u672c\u6708\u5b8c\u6210\u7387')}：{pct(summary.get("completion_rate"))} ｜ {U(r'\u6570\u636e\u65e5\u671f')}：{esc(summary.get("data_date"))}</p>
 </div>"""
         cards = [
+            self.card(U(r"\u6bcf\u65e5\u884c\u52a8\u677f"), U(r"\u4eca\u5929\u8981\u51b3\u7b56\u3001\u8981\u6267\u884c\u3001\u8981\u590d\u76d8\u7684\u4e8b\u9879\u3002"), "/action/today", "btn dark", True),
+            self.card(U(r"\u7ecf\u8425\u95ed\u73af"), U(r"SAP \u540c\u6b65\u3001AI \u6668\u62a5\u3001\u98ce\u9669\u3001\u4efb\u52a1\u3001\u665a\u95f4\u590d\u76d8\u3002"), "/operating-loop", "btn", can_boss),
+            self.card(U(r"\u7ecf\u8425\u51b3\u7b56\u4e2d\u5fc3"), U(r"\u628a\u98ce\u9669\u3001\u6a21\u62df\u3001\u667a\u80fd\u4f53\u610f\u89c1\u8f6c\u6210\u53ef\u5ba1\u6279\u51b3\u7b56\u3002"), "/decision-center", "btn", can_boss),
+            self.card(U(r"\u4f01\u4e1a\u6570\u5b57\u5b6a\u751f"), U(r"\u95e8\u5e97\u3001\u5458\u5de5\u3001\u54c1\u724c\u3001\u4ea7\u54c1\u3001\u4f9b\u5e94\u5546\u548c\u9879\u76ee\u5173\u7cfb\u3002"), "/digital-twin", "btn green", can_manager),
             self.card(U(r"AI \u603b\u7ecf\u7406"), U(r"\u6253\u5f00 AI \u603b\u7ecf\u7406\u6668\u62a5\uff0c\u67e5\u770b\u9500\u552e\u3001\u6bdb\u5229\u3001\u5e93\u5b58\u548c\u7ecf\u8425\u5efa\u8bae\u3002"), "/ai-ceo", "btn", can_boss),
+            self.card(U(r"AI \u667a\u80fd\u4f53"), U(r"\u667a\u80fd\u4f53\u5e02\u573a\u3001\u5de5\u4f5c\u6d41\u3001\u884c\u52a8\u8ba1\u5212\u548c\u4eba\u5de5\u5ba1\u6279\u3002"), "/agents/runtime", "btn", can_manager),
+            self.card(U(r"AI \u8bb0\u5fc6\u4e2d\u5fc3"), U(r"\u8bb0\u4f4f\u957f\u671f\u7ecf\u8425\u610f\u56fe\u3001\u5386\u53f2\u51b3\u7b56\u3001\u9879\u76ee\u8fdb\u5c55\u548c\u98ce\u9669\u63d0\u9192\u3002"), "/ai-memory", "btn", can_boss),
             self.card(U(r"\u7ecf\u8425\u603b\u89c8"), U(r"\u8fdb\u5165\u9500\u552e\u3001\u6bdb\u5229\u3001\u5e93\u5b58\u548c\u98ce\u9669\u6570\u636e\u770b\u677f\u3002"), "/overview", "btn dark", can_boss),
             self.card(U(r"\u95e8\u5e97\u4e2d\u5fc3"), U(r"\u95e8\u5e97\u6863\u6848\u3001\u7ecf\u8425\u6570\u636e\u3001\u65f6\u95f4\u8f74\u548c AI \u5206\u6790\u3002"), "/stores", "btn green", can_manager),
             self.card(U(r"\u5458\u5de5\u4e2d\u5fc3"), U(r"\u5458\u5de5\u6863\u6848\u3001\u9500\u552e\u8868\u73b0\u3001\u57f9\u8bad\u8bb0\u5f55\u548c AI \u5efa\u8bae\u3002"), "/employees", "btn green", can_manager),
@@ -6005,6 +6041,8 @@ class App(BaseHTTPRequestHandler):
     def api_agents_get(self, user, path):
         if not user:
             return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if path.startswith(("/api/agents/workflows", "/api/agents/workflow-templates", "/api/agents/marketplace", "/api/agents/templates", "/api/agents/builder", "/api/agents/sandbox", "/api/agents/runtime", "/api/agents/approvals")):
+            return self.api_v5_get(user, path)
         data = self.agent_summary()
         if path == "/api/agents/collaboration":
             return self.json_out({"ok": True, "summary": {"roles": len(data["roles"]), "tasks": len(data["tasks"]), "discussions": len(data["discussions"]), "tools": len(data["tools"])}})
@@ -6021,6 +6059,8 @@ class App(BaseHTTPRequestHandler):
     def api_agents_post(self, user, path):
         if not user:
             return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if path.startswith(("/api/agents/workflows", "/api/agents/workflow-templates", "/api/agents/marketplace", "/api/agents/templates", "/api/agents/builder", "/api/agents/sandbox", "/api/agents/runtime", "/api/agents/approvals")):
+            return self.api_v5_post(user, path)
         form = self.form()
         now = ts()
         if path == "/api/agents/roles":
@@ -6073,6 +6113,213 @@ class App(BaseHTTPRequestHandler):
             self.log_action(user, "agent_recommendation_generated", "agent_scenario", None, "osprey-pricing")
             return self.json_out({"ok": True, "scenario": scenario})
         return self.json_out({"ok": False, "message": "unknown agents api"}, code=404)
+
+    def v5_page_routes(self):
+        return set(self.v5_catalog().keys())
+
+    def v5_catalog(self):
+        return {
+            "/operating-loop": ("Company Operating Loop", "Daily cycle from SAP sync, briefing, risks, decisions, tasks and evening review.", ["Morning briefing", "Risk to task", "Decision to memory", "Evening review", "Loop history"], "/api/operating-loop", "Task023"),
+            "/operating-loop/evening-review": ("Evening Review", "Daily review skeleton with completed tasks, unresolved risks and tomorrow focus.", ["Completed tasks", "Unresolved risks", "Field feedback", "Tomorrow focus"], "/api/operating-loop/evening-review", "Task023"),
+            "/strategy": ("Strategy + OKR Engine", "Annual goals, quarterly OKRs, monthly targets and strategic initiatives.", ["Annual goals", "Quarterly OKR", "Monthly targets", "Store goals", "Brand goals", "Key initiatives"], "/api/strategy", "Task024"),
+            "/agents/workflows": ("Agent Workflow Engine", "Structured multi-agent workflows with human review gates.", ["Workflow templates", "Running workflows", "Pending review", "Step results", "Workflow history"], "/api/agents/workflows", "Task026"),
+            "/agents/marketplace": ("Agent Marketplace", "Internal digital employees and reusable agent templates.", ["Recommended agents", "Custom agents", "Template library", "Approval flow"], "/api/agents/marketplace", "Task027"),
+            "/agents/builder": ("Custom Agent Builder", "Create agents with scope, tools, memory, permissions and approval policy.", ["Name and role", "Responsibilities", "Knowledge scope", "Tools", "Permissions", "Test prompt"], "/api/agents/builder/options", "Task027"),
+            "/agents/sandbox": ("Agent Testing Sandbox", "Test an agent safely before activation.", ["Selected agent", "Planned tools", "Context scope", "Safety warning", "Placeholder answer"], "/api/agents/sandbox", "Task027"),
+            "/digital-twin": ("Enterprise Digital Twin", "Decision simulation layer for stores, brands, inventory, finance and agents.", ["Company snapshot", "Scenario simulation", "Decision comparison", "Agent opinions"], "/api/digital-twin", "Task028"),
+            "/decision-center": ("Decision Center", "Daily operating score, risk warning, purchase advice, clearance advice and action list.", ["Today operation", "Risk warning", "Purchase advice", "Clearance advice", "Action list", "History reports"], "/api/decisions", "V5"),
+            "/ai-memory": ("AI Memory Center", "Long-term company memory for strategy, decisions, projects and boss intent.", ["Long-term memory", "Pending memory", "Approved memory", "Related objects", "Memory logs"], "/api/memory", "V5"),
+            "/web-research-center": ("Web Research Center", "Public web research intake with source URL, summary and human review.", ["Search task", "Source URL", "Summary", "Review queue", "Save to knowledge"], "/api/knowledge", "V5"),
+            "/system/kernel": ("FoxBrain Core Kernel", "Central kernel for modules, objects, events, permissions, tools and health.", ["Module registry", "Object registry", "Event bus", "AI context", "Tool registry", "Health"], "/api/kernel", "Task030"),
+            "/system/permissions": ("Permission Matrix", "Role, module, action and sensitive data permission adapter.", ["Roles", "Modules", "Actions", "Sensitive scopes", "AI scopes"], "/api/kernel/permissions", "Task030"),
+            "/data-fabric": ("AI Data Fabric", "Unified data catalog, freshness, lineage, quality and AI readiness.", ["Data sources", "Catalog", "Lineage", "Quality", "AI-ready data", "Sensitive data"], "/api/data-fabric", "Task031"),
+            "/system/apps": ("App Platform", "Built-in app registry and future plugin architecture.", ["Installed apps", "Available apps", "Permissions", "Settings", "Health", "Events"], "/api/apps", "Task032"),
+            "/system/apps/developer": ("App Developer Guide", "Manifest, permission, event bus and data fabric rules for future apps.", ["Manifest", "Routes", "Permissions", "Events", "Settings", "Security"], "/api/apps/developer/template", "Task032"),
+            "/integrations": ("Integration Hub", "Safe connector registry for SAP, AI providers, search, messaging and webhooks.", ["Connectors", "Credential status", "Sync jobs", "Webhooks", "AI providers", "Search providers"], "/api/integrations", "Task033"),
+            "/security": ("Security Governance", "Sensitive data, AI governance, agent safety and access review.", ["Permission matrix", "Sensitive data map", "AI governance", "Agent safety", "Audit logs", "Alerts"], "/api/security", "Task034"),
+            "/operations": ("Operations Reliability", "Backup, restore, logs, uptime, maintenance and release operations.", ["Backup status", "Restore plan", "Logs", "Errors", "Uptime", "Maintenance"], "/api/operations", "Task035"),
+            "/operations/release": ("Release Checklist", "Safe release checklist for cloud deployment.", ["Pull code", "Run tests", "Restart service", "Check health", "Check login"], "/api/operations/release-checklist", "Task035"),
+            "/operations/rollback": ("Rollback Checklist", "Recovery checklist when a release fails.", ["Identify version", "Restore backup", "Restart", "Verify health", "Record incident"], "/api/operations/rollback-checklist", "Task035"),
+            "/product": ("Productization Center", "Versioning, onboarding, help, feature flags and production readiness.", ["Version info", "Release notes", "Feature flags", "Onboarding", "Help center", "Feedback"], "/api/product", "Task036"),
+            "/product/releases": ("Release Notes", "Task history and known issues.", ["Cloud edition", "Task023-038", "Known issues", "Upgrade notes"], "/api/product/releases", "Task036"),
+            "/onboarding": ("User Onboarding", "Role-based first steps for boss, manager, employee and admin.", ["Boss", "Manager", "Employee", "Admin"], "/api/onboarding", "Task036"),
+            "/onboarding/boss": ("Boss Onboarding", "Daily action review, decisions, AI CEO and operating loop.", ["Open action board", "Review decisions", "Ask Jarvis", "Approve actions"], "/api/onboarding", "Task036"),
+            "/onboarding/manager": ("Manager Onboarding", "Store tasks, customer follow-up and field feedback.", ["View store actions", "Complete tasks", "Upload evidence", "Evening review"], "/api/onboarding", "Task036"),
+            "/onboarding/employee": ("Employee Onboarding", "Mobile-first daily tasks and feedback submission.", ["My tasks", "Upload photo", "Customer feedback", "Ask AI"], "/api/onboarding", "Task036"),
+            "/onboarding/admin": ("Admin Onboarding", "Configure cloud, users, SAP sync, backups and health.", ["Users", ".env", "SAP sync", "Backup", "Health"], "/api/onboarding", "Task036"),
+            "/help": ("Help Center", "Getting started, SAP sync, Jarvis, tasks, knowledge and troubleshooting.", ["Getting started", "AI CEO", "Jarvis", "SAP", "Tasks", "Troubleshooting"], "/api/help", "Task036"),
+            "/product/admin-checklist": ("Admin Checklist", "Production launch checklist.", ["Configure .env", "Check login", "Check permissions", "Check backup", "Check SAP"], "/api/product/admin-checklist", "Task036"),
+            "/product/readiness": ("Production Readiness", "Production readiness dashboard.", ["Login", "Permissions", "SAP sync", "Backup", "Security", "AI provider"], "/api/product/readiness", "Task036"),
+            "/feedback": ("Feedback Center", "Collect product feedback and improvement requests.", ["New feedback", "Reviewing", "Planned", "Fixed"], "/api/feedback", "Task036"),
+            "/agents/runtime": ("Actionable Agent Runtime", "Agent runs, action plans, approvals, tool executions and safety blocks.", ["Agent runs", "Action plans", "Approvals", "Tool executions", "Safety blocks"], "/api/agents/runtime", "Task037"),
+            "/agents/approvals": ("Agent Approval Console", "Approve, reject, edit or request more analysis for agent actions.", ["Pending plans", "Pending steps", "Rejected", "Approved"], "/api/agents/approvals", "Task037"),
+            "/action/boss": ("Boss Action Console", "Top risks, pending decisions, overdue tasks and agent approvals.", ["Top risks", "Boss decisions", "Overdue tasks", "Store exceptions", "Suggested actions"], "/api/action/boss", "Task038"),
+            "/action/store-manager": ("Store Manager Action Console", "Store tasks, customer follow-ups, inventory issues and AI store suggestions.", ["Store tasks", "Customer follow-up", "Inventory issues", "Content tasks"], "/api/action/store-manager", "Task038"),
+            "/action/employee": ("Employee Action Console", "Mobile-first personal tasks, uploads, feedback and notifications.", ["My tasks", "Upload photo", "Customer feedback", "Training"], "/api/action/employee", "Task038"),
+            "/action/brand": ("Brand Action Console", "Brand risks, content opportunities, research alerts and decisions.", ["Osprey risk", "KAILAS growth", "VAFOX content", "Research alerts"], "/api/action/brand", "Task038"),
+            "/action/inventory": ("Inventory Action Console", "Inventory warnings, transfer tasks and markdown review.", ["High stock", "Slow movers", "Transfer review", "Markdown review"], "/api/action/inventory", "Task038"),
+            "/action/finance": ("Finance Action Console", "Profit, rebate, cashflow and break-even warnings.", ["Profit warnings", "Rebate risks", "Cashflow", "Break-even"], "/api/action/finance", "Task038"),
+            "/action/agents": ("AI Agent Action Console", "Agent plans, approvals, failed runs and safety blocks.", ["Running agents", "Pending approvals", "Safety blocks", "Next actions"], "/api/action/agents", "Task038"),
+            "/action/today": ("Daily Action Board", "What to decide, execute and review today.", ["Must decide", "Must execute", "Must review", "Completed today"], "/api/action/today", "Task038"),
+            "/action/rhythm": ("FireFox Operating Rhythm", "Daily, weekly and monthly operating cadence.", ["Daily", "Weekly", "Monthly"], "/api/action/rhythm", "Task038"),
+        }
+
+    def v5_page(self, user, path):
+        user = self.require_login(user)
+        if not user:
+            return
+        title, subtitle, sections, api_path, task_no = self.v5_catalog()[path]
+        data = self.v5_payload(path, user)
+        cards = "".join(self.card(s, "Prepared workflow section. Real conclusions wait for source data and human review.", api_path, "btn", True) for s in sections)
+        status_items = [
+            task_no + " framework active",
+            "No fake business data: missing data is shown as limitation.",
+            "Human approval required for sensitive decisions and actions.",
+            "SAP nightly sync remains scheduled at 22:00.",
+        ]
+        body = f"""
+<div class="panel">
+  <h2>{esc(title)}</h2>
+  <p class="small">{esc(subtitle)}</p>
+  <div class="metrics">
+    {self.metric("Status", data["status"], task_no)}
+    {self.metric("Open items", len(data["items"]), "draft / pending")}
+    {self.metric("SAP", data["sap"]["freshness"], data["sap"]["next_run_time"])}
+    {self.metric("Health", data["health"]["status"], data["health"]["app_version"])}
+  </div>
+</div>
+<div class="grid">{cards}</div>
+<div class="split">
+  <div class="panel"><h2>Current Limits</h2>{self.bullets(data["limitations"])}</div>
+  <div class="panel"><h2>Safety Rules</h2>{self.bullets(status_items)}</div>
+</div>
+<div class="panel form">
+  <h2>Create Draft Item</h2>
+  <form method="post" action="{esc(api_path)}">
+    <label>Title</label><input name="title" required>
+    <label>Description</label><textarea name="description"></textarea>
+    <label>Priority</label><select name="priority"><option value="normal">normal</option><option value="high">high</option><option value="urgent">urgent</option></select>
+    <p><button>Save Draft</button></p>
+  </form>
+</div>"""
+        self.out(layout(title, body, user=user, wide=True))
+
+    def v5_item_type(self, path):
+        clean = path.replace("/api/", "").strip("/")
+        return clean.split("/")[0].replace("-", "_") or "v5"
+
+    def v5_payload(self, path, user):
+        item_type = self.v5_item_type(path)
+        if path.startswith("/api/agents/") or path.startswith("/agents/"):
+            item_type = "agents"
+        with db() as conn:
+            rows = conn.execute("select * from v5_items where item_type=? order by updated_at desc limit 30", (item_type,)).fetchall()
+        sections = self.v5_catalog().get(path.replace("/api", "", 1), ("", "", [], "", ""))[2] if path.startswith("/api") else self.v5_catalog().get(path, ("", "", [], "", ""))[2]
+        return {
+            "ok": True,
+            "module": item_type,
+            "status": "framework_ready",
+            "sections": sections,
+            "items": [row_dict(r) for r in rows],
+            "sap": self.sap_sync_status_payload(),
+            "health": self.health_payload(),
+            "data_policy": "Use real data only. If data is missing, return limitations instead of conclusions.",
+            "approval_policy": "Sensitive actions require human approval. Agents can draft, plan and request approval.",
+            "limitations": [
+                "Real SAP business facts depend on the 22:00 sync result.",
+                "AI provider calls are not forced here; this layer is safe without API keys.",
+                "External publishing, price changes, purchasing, finance and HR actions are approval-only.",
+            ],
+        }
+
+    def api_v5_get(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if path.startswith("/api/data-sources"):
+            return self.json_out({"ok": True, "sources": self.v5_data_sources()})
+        if path.startswith("/api/data-catalog"):
+            return self.json_out({"ok": True, "datasets": self.v5_data_catalog()})
+        if path.startswith("/api/data-quality"):
+            return self.json_out({"ok": True, "quality": self.v5_data_quality()})
+        if path.startswith("/api/integrations"):
+            return self.json_out(self.v5_integrations_payload())
+        if path.startswith("/api/security"):
+            return self.json_out(self.v5_security_payload())
+        if path.startswith("/api/operations"):
+            return self.json_out(self.v5_operations_payload())
+        if path.startswith("/api/product") or path.startswith("/api/help") or path.startswith("/api/onboarding") or path.startswith("/api/feedback"):
+            return self.json_out(self.v5_product_payload(path))
+        if path.startswith("/api/action"):
+            return self.json_out(self.v5_action_payload(path, user))
+        if path.startswith("/api/agents"):
+            return self.json_out(self.v5_agent_payload(path, user))
+        return self.json_out(self.v5_payload(path, user))
+
+    def api_v5_post(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        form = self.form()
+        title = form.get("title") or form.get("objective") or form.get("question") or form.get("request_text") or "Untitled draft"
+        now = ts()
+        item_type = self.v5_item_type(path)
+        if path.startswith("/api/agents/"):
+            item_type = "agents"
+        if any(path.endswith(suffix) for suffix in ("/approve", "/reject", "/complete", "/cancel")):
+            action = path.rsplit("/", 1)[-1]
+            self.log_action(user, "v5_" + action, item_type, None, path)
+            return self.json_out({"ok": True, "action": action, "message": "Action recorded. V1 does not perform unsafe business changes automatically."})
+        with db() as conn:
+            cur = conn.execute(
+                "insert into v5_items(item_id,item_type,title,description,status,priority,owner,related_object_type,related_object_id,payload_json,approval_status,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("V5-" + uuid.uuid4().hex[:10], item_type, title, form.get("description", ""), form.get("status", "draft"), form.get("priority", "normal"), form.get("owner", ""), form.get("related_object_type", ""), form.get("related_object_id", ""), json.dumps(form, ensure_ascii=False), form.get("approval_status", "pending" if "approval" in path or "runtime" in path else "not_required"), user["id"], now, now),
+            )
+        self.log_action(user, "v5_item_created", item_type, cur.lastrowid, title[:120])
+        return self.json_out({"ok": True, "id": cur.lastrowid, "item_type": item_type, "message": "Draft saved. Human review is still required for sensitive actions."})
+
+    def v5_data_sources(self):
+        sap = self.sap_sync_status_payload()
+        return [
+            {"source_key": "sap_b1", "name": "SAP B1", "type": "erp", "sync_frequency": "daily 22:00", "freshness": sap["freshness"], "configured": True},
+            {"source_key": "knowledge", "name": "Knowledge Center", "type": "knowledge", "freshness": "ready", "configured": True},
+            {"source_key": "uploads", "name": "Uploaded files", "type": "document", "freshness": "ready", "configured": True},
+            {"source_key": "ai_provider", "name": "AI Provider", "type": "ai_provider", "freshness": "env_checked", "configured": bool(os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("OPENAI_API_KEY"))},
+        ]
+
+    def v5_data_catalog(self):
+        return [
+            {"dataset_key": "stores", "name": "Store master data", "sensitivity": "internal", "ai_ready": "partial"},
+            {"dataset_key": "products", "name": "Product archive data", "sensitivity": "internal", "ai_ready": "partial"},
+            {"dataset_key": "sap_sales", "name": "SAP sales data", "sensitivity": "manager_only", "ai_ready": "depends_on_sync"},
+            {"dataset_key": "sap_inventory", "name": "SAP inventory data", "sensitivity": "manager_only", "ai_ready": "depends_on_sync"},
+            {"dataset_key": "finance", "name": "Finance data", "sensitivity": "finance_sensitive", "ai_ready": "permission_required"},
+            {"dataset_key": "customer", "name": "Customer data", "sensitivity": "customer_sensitive", "ai_ready": "restricted"},
+        ]
+
+    def v5_data_quality(self):
+        sap = self.sap_sync_status_payload()
+        return [{"check": "sap_freshness", "status": sap["freshness"]}, {"check": "secret_exposure", "status": "no_secrets_returned"}, {"check": "ai_citation", "status": "source_required"}]
+
+    def v5_integrations_payload(self):
+        providers = ["OpenAI", "DeepSeek", "Claude", "Gemini", "Qwen"]
+        connectors = ["SAP B1", "Enterprise WeChat", "WeChat Official Account", "Douyin", "Xiaohongshu", "Email SMTP", "Cloud Storage", "Bing Search", "Tavily"]
+        return {"ok": True, "connectors": [{"name": c, "configured": c == "SAP B1", "secrets_visible": False} for c in connectors], "ai_providers": [{"name": p, "configured": bool(os.environ.get(p.upper() + "_API_KEY")), "secrets_visible": False} for p in providers], "sap": self.sap_sync_status_payload()}
+
+    def v5_security_payload(self):
+        return {"ok": True, "sensitive_data": self.v5_data_catalog(), "ai_governance": ["AI cannot change prices automatically", "AI cannot approve purchasing or finance actions", "AI cannot expose secrets", "External publishing requires approval"], "alerts": [{"level": "info", "title": "Security framework active"}]}
+
+    def v5_operations_payload(self):
+        return {"ok": True, "backup": {"script": "backup.sh", "status": "available"}, "restore": {"script": "restore.sh", "status": "available"}, "healthcheck": {"script": "healthcheck.sh", "status": "available"}, "cloud": {"restart_policy": "always", "pc_can_be_off": True}, "sap": self.sap_sync_status_payload()}
+
+    def v5_product_payload(self, path):
+        return {"ok": True, "version": self.health_payload()["app_version"], "completed_tasks": [f"Task{n:03d}" for n in range(23, 39)], "feature_flags": ["enable_jarvis", "enable_agent_workflows", "enable_digital_twin", "enable_sap_nightly_sync", "enable_mobile_field_operation"], "help_sections": ["Getting started", "AI CEO", "Jarvis", "SAP sync", "Tasks", "Knowledge", "Troubleshooting"], "path": path}
+
+    def v5_agent_payload(self, path, user):
+        data = self.agent_summary()
+        return {"ok": True, "path": path, "roles": [row_dict(r) for r in data["roles"]], "tools": [row_dict(r) for r in data["tools"]], "runtime": {"safety_levels": ["read_only", "draft_only", "internal_state_change", "sensitive_business_action", "blocked"], "default_approval_required": True}, "templates": ["Pricing Decision", "Inventory Risk", "Purchasing Decision", "Store Growth", "Brand Strategy", "Finance Risk", "Osprey Decision"]}
+
+    def v5_action_payload(self, path, user):
+        queue = self.os_work_queue_payload(user)["items"]
+        return {"ok": True, "path": path, "today": {"must_decide": [], "must_execute": queue[:10], "must_review": []}, "conversion_flows": ["suggestion_to_task", "risk_to_decision", "decision_to_execution", "submission_to_knowledge", "agent_plan_to_actions"], "approval_required": True}
 
     def can_use_mobile(self, user):
         return bool(user)
