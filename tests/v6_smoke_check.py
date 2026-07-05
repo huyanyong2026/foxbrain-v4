@@ -146,6 +146,10 @@ def test_enterprise_pack_routes_present():
         "/api/executive-command-center/system-health",
         "/api/executive-command-center/modules",
         "/api/executive-command-center/monitoring",
+        "/api/product/release-1-0",
+        "/api/product/release-1-0/modules",
+        "/api/product/release-1-0/integration",
+        "/api/product/architecture-review",
     ]:
         assert route in portal
 
@@ -435,6 +439,31 @@ def test_pack_executive_command_center_present():
         assert phrase in portal
 
 
+def test_pack_release_1_0_present():
+    portal = read("portal_v2.py")
+    docs_report = read("docs/FoxBrain_OS_1_0_Architecture_Review_Report.md")
+    for phrase in [
+        "release_1_0_payload",
+        "release_1_0_module_registry_payload",
+        "release_1_0_integration_payload",
+        "architecture_review_report_payload",
+        "do_not_add_unplanned_features_prioritize_architecture_integration_interface_consistency_docs_tests_production_readiness",
+        "no_unplanned_features_architecture_unification_first",
+        "release_candidate_ready_after_remote_smoke_test",
+        "packs_01_19_integrated",
+    ]:
+        assert phrase in portal
+    for phrase in [
+        "FoxBrain OS 1.0 Architecture Review Report",
+        "Completed Modules",
+        "Pending Modules",
+        "Technical Debt",
+        "Next Stage Recommendations",
+        "remote smoke test",
+    ]:
+        assert phrase in docs_report
+
+
 def test_production_deployment_files_present():
     for file_name in [
         "Dockerfile",
@@ -478,6 +507,9 @@ def test_enterprise_pack_docs_present():
         "docs/126_ENTERPRISE_PACK_17_FOXBRAIN_UNIVERSITY.md",
         "docs/127_ENTERPRISE_PACK_18_GROWTH_ENGINE.md",
         "docs/128_ENTERPRISE_PACK_19_COMMAND_CENTER.md",
+        "docs/129_ENTERPRISE_PACK_20_RELEASE_1_0.md",
+        "docs/FoxBrain_OS_1_0_Architecture_Review_Report.md",
+        "docs/OPERATIONS_RUNBOOK_1_0.md",
         "docs/SDK_EXTENSION_STANDARD.md",
         "docs/RELEASE_1_0_PRODUCTION_CHECKLIST.md",
         "docs/CODEX_TASKS/Task041_Pack02_SAP_AI_Connector.md",
@@ -498,5 +530,6 @@ def test_enterprise_pack_docs_present():
         "docs/CODEX_TASKS/Task056_Pack17_FoxBrain_University.md",
         "docs/CODEX_TASKS/Task057_Pack18_Growth_Engine.md",
         "docs/CODEX_TASKS/Task058_Pack19_Command_Center.md",
+        "docs/CODEX_TASKS/Task059_Pack20_Release_1_0.md",
     ]:
         assert (ROOT / doc).exists()

@@ -42,3 +42,5 @@
 - Growth recommendations now reference data sources and align with Data Intelligence, Decision Engine, Digital Twin and Strategy Center.
 - Integrated Pack 19 Executive Command Center with unified executive cockpit, risk center, AI Command, system health and module monitoring.
 - Executive Command Center now follows unified RBAC, unified data model, unified monitoring and human approval for high-risk AI commands.
+- Integrated Pack 20 FoxBrain OS 1.0 release review with module registry, integration checklist, architecture review payload and operations runbook.
+- Added formal FoxBrain OS 1.0 Architecture Review Report and release candidate gate for remote smoke test, backup and rollback rehearsal.

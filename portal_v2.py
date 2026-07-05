@@ -6084,6 +6084,10 @@ class App(BaseHTTPRequestHandler):
         checks["command_center_permission_status"] = "rbac_enforced"
         checks["command_center_monitoring_status"] = "unified_health"
         checks["ai_command_status"] = "approval_gated"
+        checks["enterprise_pack_20_release_1_0_status"] = "release_review_ready"
+        checks["architecture_review_status"] = "completed_local_review"
+        checks["integration_consistency_status"] = "packs_01_19_integrated"
+        checks["release_1_0_gate_status"] = "candidate_ready_after_remote_smoke_test"
         checks["v6_autonomous_worker_status"] = "scheduled" if os.environ.get("APP_ENV", "production") else "local"
         checks["worker_jobs"] = {
             "sap_sync": os.environ.get("SAP_SYNC_TIME", "22:00"),
@@ -7367,6 +7371,7 @@ class App(BaseHTTPRequestHandler):
             "/sdk/extensions": ("Extension API", "Stable extension APIs for authentication, knowledge, SAP, workflow, notifications and AI tools.", ["Auth API", "Knowledge API", "SAP API", "Workflow API", "Notification API", "AI Tool API"], "/api/extensions/contracts", "Task051"),
             "/marketplace": ("Marketplace", "Internal plugin marketplace for agents, dashboards, reports, workflow packs, SAP extensions and knowledge connectors.", ["AI agents", "Dashboards", "Reports", "Workflow packs", "SAP extensions", "Knowledge connectors"], "/api/marketplace/apps", "Task051"),
             "/product": ("Productization Center", "Versioning, onboarding, help, feature flags and production readiness.", ["Version info", "Release notes", "Feature flags", "Onboarding", "Help center", "Feedback"], "/api/product", "Task036"),
+            "/product/release-1-0": ("FoxBrain OS 1.0 Release", "Architecture integration review, production gate and next-stage roadmap.", ["Integrated modules", "API consistency", "Documentation", "Automated tests", "Production readiness", "Architecture review"], "/api/product/release-1-0", "Task059"),
             "/product/releases": ("Release Notes", "Task history and known issues.", ["Cloud edition", "Task023-038", "Known issues", "Upgrade notes"], "/api/product/releases", "Task036"),
             "/onboarding": ("User Onboarding", "Role-based first steps for boss, manager, employee and admin.", ["Boss", "Manager", "Employee", "Admin"], "/api/onboarding", "Task036"),
             "/onboarding/boss": ("Boss Onboarding", "Daily action review, decisions, AI CEO and operating loop.", ["Open action board", "Review decisions", "Ask Jarvis", "Approve actions"], "/api/onboarding", "Task036"),
@@ -8789,15 +8794,106 @@ class App(BaseHTTPRequestHandler):
 
     def release_checklist_payload(self):
         checks = [
-            {"key": "all_prior_packs_integrated", "status": "pass", "evidence": "docs/110-118 and Task040-048"},
+            {"key": "all_prior_packs_integrated", "status": "pass", "evidence": "docs/110-128 and Task040-058"},
             {"key": "deployment_repeatable", "status": "pass", "evidence": "docker-compose.yml, install.sh, GitHub Actions"},
             {"key": "monitoring_active", "status": "pass", "evidence": "/api/health and healthcheck.sh"},
             {"key": "rollback_documented", "status": "pass", "evidence": "backup.sh, restore.sh, BACKUP_RESTORE.md"},
             {"key": "security_review", "status": "pass", "evidence": "role permissions, .env, approval gates"},
-            {"key": "documentation_complete", "status": "pass", "evidence": "README_CLOUD_DEPLOY.md and docs/119"},
+            {"key": "documentation_complete", "status": "pass", "evidence": "README_CLOUD_DEPLOY.md, docs/119, docs/128 and docs/129"},
+            {"key": "architecture_review_completed", "status": "pass", "evidence": "docs/FoxBrain_OS_1_0_Architecture_Review_Report.md"},
             {"key": "production_checklist_passed", "status": "conditional", "evidence": "local validation passed; remote server smoke test still requires operator deployment window"},
         ]
         return {"ok": True, "release": "1.0", "checklist": checks, "decision": "release_candidate_ready_after_remote_smoke_test"}
+
+    def release_1_0_module_registry_payload(self):
+        modules = [
+            ("Pack 01", "Foundation Engineering", "completed", "cloud standards, env safety, tests, docs"),
+            ("Pack 02", "SAP AI Connector", "completed", "SAP connector contract and AI registry"),
+            ("Pack 03", "Knowledge Platform", "completed", "ingestion, governance, retrieval and graph contracts"),
+            ("Pack 04", "AI Agents", "completed", "runtime, permissions, tools, audit and approvals"),
+            ("Pack 05", "Dashboard Framework", "completed", "KPI, alerts and evidence-based recommendations"),
+            ("Pack 06", "Automation Framework", "completed", "scheduler, retry, audit and approval gates"),
+            ("Pack 07", "Enterprise Brain", "completed", "memory, decisions, forecast, simulation and AI Council"),
+            ("Pack 08", "Mobile Portal", "completed", "SSO foundation, role navigation and responsive portal"),
+            ("Pack 09", "Enterprise Memory", "completed", "traceable long-term memory and retrieval contracts"),
+            ("Pack 10", "Release Production", "completed", "deployment, observability and rollback readiness"),
+            ("Pack 11", "Security Governance", "completed", "RBAC, audit, data governance and backup policy"),
+            ("Pack 12", "SDK Marketplace", "completed", "plugin manifest, extension points and compatibility"),
+            ("Pack 13", "Data Intelligence", "completed", "unified KPI, metrics, quality and insight layer"),
+            ("Pack 14", "Digital Twin", "completed", "entity model, relationships and sandbox simulation"),
+            ("Pack 15", "Decision Engine", "completed", "risk scoring, opportunities and approval gates"),
+            ("Pack 16", "AI Strategy Center", "completed", "OKR, models, scenario comparison and strategy dashboard"),
+            ("Pack 17", "FoxBrain University", "completed", "learning paths, AI Tutor and certifications"),
+            ("Pack 18", "Growth Engine", "completed", "store, brand, product and customer growth scorecards"),
+            ("Pack 19", "Executive Command Center", "completed", "executive cockpit, risk, AI Command and health rollup"),
+            ("Pack 20", "Release 1.0 Review", "completed", "architecture review, integration checklist and release gate"),
+        ]
+        return {"ok": True, "release": "1.0", "modules": [{"pack": p, "module": m, "status": s, "scope": scope} for p, m, s, scope in modules]}
+
+    def release_1_0_integration_payload(self):
+        return {
+            "ok": True,
+            "release": "1.0",
+            "integration_principle": "no_unplanned_features_architecture_unification_first",
+            "checks": [
+                {"area": "authentication", "status": "pass", "basis": "session login and approved user status"},
+                {"area": "authorization", "status": "pass", "basis": "role-based module visibility and approval gates"},
+                {"area": "sap_integration", "status": "contract_ready", "basis": "SAP sync status and connector endpoints"},
+                {"area": "knowledge_platform", "status": "framework_ready", "basis": "governance, retrieval and graph contracts"},
+                {"area": "ai_agents", "status": "framework_ready", "basis": "agent registry, tool interface and approval policy"},
+                {"area": "dashboards", "status": "framework_ready", "basis": "unified dashboard and data intelligence services"},
+                {"area": "automation", "status": "framework_ready", "basis": "scheduler, retry, audit and approval nodes"},
+                {"area": "decision_engine", "status": "framework_ready", "basis": "explainable recommendations and risk scoring"},
+                {"area": "command_center", "status": "framework_ready", "basis": "Executive Command Center aggregation"},
+                {"area": "production_release", "status": "candidate", "basis": "local tests pass; remote smoke test still required"},
+            ],
+            "interface_consistency": {
+                "api_style": "json_payloads_with_ok_status_and_explicit_service_names",
+                "permission_model": "rbac_default_deny",
+                "data_model": "canonical_entities_and_unified_metrics_service",
+                "audit_model": "activity_log_approval_and_run_history_contracts",
+            },
+        }
+
+    def architecture_review_report_payload(self):
+        return {
+            "ok": True,
+            "title": "FoxBrain OS 1.0 Architecture Review Report",
+            "completed_modules": self.release_1_0_module_registry_payload()["modules"],
+            "pending_modules": [
+                {"module": "Real SAP production sync validation", "reason": "requires live server deployment window and business data verification"},
+                {"module": "Real AI provider end-to-end QA", "reason": "requires production API keys, quota policy and prompt safety review"},
+                {"module": "Remote backup and rollback drill", "reason": "must be tested on server or staging copy before final production approval"},
+                {"module": "Observability hardening", "reason": "current health endpoints are ready; alert channels and log aggregation should be connected next"},
+            ],
+            "technical_debt": [
+                {"item": "Single large portal file", "impact": "slows future modular development", "recommendation": "split services by module after 1.0 release branch is stable"},
+                {"item": "Framework contracts before full live data", "impact": "some modules are architecture-ready but data-light", "recommendation": "connect SAP, knowledge index and AI provider gradually with tests"},
+                {"item": "Limited automated route execution tests", "impact": "smoke tests validate structure more than runtime behavior", "recommendation": "add authenticated API route tests and deployment smoke tests"},
+                {"item": "Manual production gate", "impact": "server rollback and remote health require human deployment window", "recommendation": "run staged release checklist before final go-live"},
+            ],
+            "next_stage_recommendations": [
+                "Freeze 1.0 architecture and avoid broad new modules until production deployment is stable.",
+                "Run Tencent Cloud deployment smoke test, backup test and rollback rehearsal.",
+                "Connect SAP B1 nightly sync to real operating dashboards with data lineage.",
+                "Connect Dify or AI provider through the approved agent/tool interface only.",
+                "Refactor portal_v2.py into service modules after tests cover major API routes.",
+            ],
+            "release_decision": "release_candidate_ready_after_remote_smoke_test",
+        }
+
+    def release_1_0_payload(self):
+        return {
+            "ok": True,
+            "release": "FoxBrain OS 1.0",
+            "status": "release_candidate_ready_after_remote_smoke_test",
+            "scope_rule": "do_not_add_unplanned_features_prioritize_architecture_integration_interface_consistency_docs_tests_production_readiness",
+            "modules": self.release_1_0_module_registry_payload()["modules"],
+            "integration": self.release_1_0_integration_payload()["checks"],
+            "readiness": self.release_readiness_payload(),
+            "architecture_review": self.architecture_review_report_payload(),
+            "report": "docs/FoxBrain_OS_1_0_Architecture_Review_Report.md",
+        }
 
     def release_readiness_payload(self):
         return {
@@ -8812,6 +8908,14 @@ class App(BaseHTTPRequestHandler):
         }
 
     def v5_product_payload(self, path):
+        if path == "/api/product/release-1-0":
+            return self.release_1_0_payload()
+        if path == "/api/product/release-1-0/modules":
+            return self.release_1_0_module_registry_payload()
+        if path == "/api/product/release-1-0/integration":
+            return self.release_1_0_integration_payload()
+        if path == "/api/product/architecture-review":
+            return self.architecture_review_report_payload()
         if path == "/api/product/release-readiness":
             return self.release_readiness_payload()
         if path == "/api/product/deployment-standard":

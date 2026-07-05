@@ -82,6 +82,9 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [126_ENTERPRISE_PACK_17_FOXBRAIN_UNIVERSITY.md](126_ENTERPRISE_PACK_17_FOXBRAIN_UNIVERSITY.md)
 - [127_ENTERPRISE_PACK_18_GROWTH_ENGINE.md](127_ENTERPRISE_PACK_18_GROWTH_ENGINE.md)
 - [128_ENTERPRISE_PACK_19_COMMAND_CENTER.md](128_ENTERPRISE_PACK_19_COMMAND_CENTER.md)
+- [129_ENTERPRISE_PACK_20_RELEASE_1_0.md](129_ENTERPRISE_PACK_20_RELEASE_1_0.md)
+- [FoxBrain_OS_1_0_Architecture_Review_Report.md](FoxBrain_OS_1_0_Architecture_Review_Report.md)
+- [OPERATIONS_RUNBOOK_1_0.md](OPERATIONS_RUNBOOK_1_0.md)
 - [SDK_EXTENSION_STANDARD.md](SDK_EXTENSION_STANDARD.md)
 - [RELEASE_1_0_PRODUCTION_CHECKLIST.md](RELEASE_1_0_PRODUCTION_CHECKLIST.md)
 - [README_AUTO_UPDATE.md](README_AUTO_UPDATE.md)
@@ -131,6 +134,7 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [Task056 Pack17 FoxBrain University](CODEX_TASKS/Task056_Pack17_FoxBrain_University.md)
 - [Task057 Pack18 Growth Engine](CODEX_TASKS/Task057_Pack18_Growth_Engine.md)
 - [Task058 Pack19 Command Center](CODEX_TASKS/Task058_Pack19_Command_Center.md)
+- [Task059 Pack20 Release 1.0](CODEX_TASKS/Task059_Pack20_Release_1_0.md)
 
 Future tasks should use folders:
 
