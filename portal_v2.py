@@ -1761,6 +1761,40 @@ create table if not exists system_events(
 """
         )
         conn.execute("create index if not exists idx_system_events_module on system_events(module_key, event_type)")
+        conn.execute(
+            """
+create table if not exists sap_sync_history(
+ id integer primary key autoincrement,
+ sync_id text unique,
+ job_name text not null default 'sap_b1_sync',
+ trigger_type text,
+ status text not null default 'pending',
+ started_at integer,
+ finished_at integer,
+ duration_seconds real not null default 0,
+ records_read integer not null default 0,
+ records_written integer not null default 0,
+ records_updated integer not null default 0,
+ records_failed integer not null default 0,
+ error_message text,
+ log_path text,
+ created_by integer
+)
+"""
+        )
+        conn.execute("create index if not exists idx_sap_sync_history_status on sap_sync_history(status, started_at)")
+        conn.execute(
+            """
+create table if not exists job_locks(
+ id integer primary key autoincrement,
+ job_name text unique,
+ lock_status text not null default 'free',
+ locked_at integer,
+ locked_by text,
+ expires_at integer
+)
+"""
+        )
         admin_email = os.environ.get("PORTAL_ADMIN_EMAIL", "vafox@126.com").strip().lower()
         existing_admin = conn.execute("select id from users where role='admin' limit 1").fetchone()
         if not existing_admin:
@@ -1899,6 +1933,8 @@ class App(BaseHTTPRequestHandler):
             return self.agent_collaboration(user)
         if path == "/sap-sync":
             return self.sap_sync(user)
+        if path == "/data-pipeline":
+            return self.data_pipeline_page(user)
         if path == "/documents":
             return self.document_center(user)
         if path == "/workflow":
@@ -2013,6 +2049,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_customer_growth_get(user, path)
         if path.startswith("/api/system") or path.startswith("/api/search/global") or path.startswith("/api/workspace") or path.startswith("/api/boss") or path.startswith("/api/employee-workspace") or path.startswith("/api/settings") or path.startswith("/api/ai/context-packet") or path.startswith("/api/risks") or path.startswith("/api/timeline/global"):
             return self.api_platform_get(user, path)
+        if path.startswith("/api/sap/sync") or path.startswith("/api/data-pipeline") or path.startswith("/api/system/data-freshness"):
+            return self.api_sap_sync_get(user, path)
         if path.startswith("/api/ai-ceo") or path.startswith("/api/business") or path.startswith("/api/stores") or path.startswith("/api/brands") or path.startswith("/api/inventory") or path.startswith("/api/tasks"):
             return self.api_task005_get(user, path)
         if path.startswith("/api/automation") or path.startswith("/api/workflows") or path.startswith("/api/notifications"):
@@ -2143,6 +2181,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_customer_growth_post(self.current_user(), path)
         if path.startswith("/api/notifications") or path.startswith("/api/settings") or path.startswith("/api/risks"):
             return self.api_platform_post(self.current_user(), path)
+        if path.startswith("/api/sap/sync"):
+            return self.api_sap_sync_post(self.current_user(), path)
         if path.startswith("/api/ai-ceo") or path.startswith("/api/business") or path.startswith("/api/stores") or path.startswith("/api/brands") or path.startswith("/api/inventory") or path.startswith("/api/tasks"):
             return self.api_task005_post(self.current_user(), path)
         if path.startswith("/api/automation") or path.startswith("/api/workflows") or path.startswith("/api/notifications"):
@@ -3026,16 +3066,27 @@ class App(BaseHTTPRequestHandler):
         user = self.require_login(user)
         if not user:
             return
+        if user["role"] not in ("boss", "admin", "finance", "purchasing"):
+            return self.dashboard(user)
         s = load_summary()
+        status = self.sap_sync_status_payload()
+        history_items = [h["sync_id"] + " · " + h["trigger_type"] + " · " + h["status"] for h in status["history"][:10]] or [U(r"\u6682\u65e0 SAP \u540c\u6b65\u5386\u53f2\u3002")]
         body = f"""
 <div class="panel">
   <h2>SAP B1 {U(r'\u540c\u6b65\u72b6\u6001')}</h2>
   <div class="metrics">
-    {self.metric(U(r'\u6570\u636e\u65e5\u671f'), s.get('data_date'), U(r'\u6458\u8981\u6587\u4ef6'))}
+    {self.metric(U(r'\u6570\u636e\u65e5\u671f'), s.get('data_date'), status['freshness'])}
     {self.metric(U(r'\u6628\u65e5\u9500\u552e'), U(r'\uffe5') + money(s.get('yesterday_sales')), U(r'SAP B1'))}
     {self.metric(U(r'\u5e93\u5b58\u91d1\u989d'), U(r'\uffe5') + money(s.get('inventory_amount')), U(r'\u5df2\u540c\u6b65'))}
+    {self.metric(U(r'\u4e0a\u6b21\u540c\u6b65'), status['last_sync_time'], status['last_status'])}
+    {self.metric(U(r'\u4e0b\u6b21\u540c\u6b65'), status['next_run_time'], U(r'\u6bcf\u665a 22:00'))}
   </div>
-  <p class="small">{U(r'\u624b\u52a8\u540c\u6b65\u5efa\u8bae\u5728\u670d\u52a1\u5668\u6267\u884c systemctl start firefox-sap-sync.service\uff0c\u9875\u9762\u5148\u63d0\u4f9b\u72b6\u6001\u67e5\u770b\u3002')}</p>
+  <p class="small">{status['warning']}</p>
+  <form method="post" action="/api/sap/sync/run"><button>{U(r'\u7acb\u5373\u540c\u6b65 SAP \u6570\u636e')}</button></form>
+</div>
+<div class="split">
+  <div class="panel"><h2>{U(r'\u540c\u6b65\u5386\u53f2')}</h2>{self.bullets(history_items)}</div>
+  <div class="panel"><h2>{U(r'\u914d\u7f6e\u72b6\u6001')}</h2>{self.bullets(status['config_status'])}</div>
 </div>"""
         self.out(layout(U(r"SAP B1 \u540c\u6b65"), body, user=user, wide=True))
 
@@ -4397,6 +4448,7 @@ class App(BaseHTTPRequestHandler):
     def platform_modules(self):
         return [
             ("ai_ceo", "AI CEO", "/ai-ceo", "ai", "boss"),
+            ("business_cockpit", U(r"\u7ecf\u8425\u9a7e\u9a76\u8231"), "/business-overview", "ai", "boss"),
             ("jarvis", "Jarvis", "/jarvis", "ai", "view_workspace"),
             ("agents", "AI Agents", "/agents", "ai", "admin"),
             ("reports", "Reports", "/reports", "ai", "boss"),
@@ -4406,6 +4458,8 @@ class App(BaseHTTPRequestHandler):
             ("finance", U(r"\u8d22\u52a1"), "/finance", "operation", "finance"),
             ("hr", U(r"\u4eba\u4e8b\u7ee9\u6548"), "/hr", "operation", "store_manager"),
             ("customer_growth", U(r"\u987e\u5ba2\u589e\u957f"), "/customer-growth", "operation", "employee"),
+            ("sap_sync", "SAP Sync", "/sap-sync", "operation", "finance"),
+            ("data_pipeline", U(r"\u6570\u636e\u7ba1\u9053"), "/data-pipeline", "operation", "finance"),
             ("documents", U(r"\u6587\u4ef6"), "/documents", "knowledge", "employee"),
             ("knowledge", U(r"\u77e5\u8bc6\u5e93"), "/knowledge", "knowledge", "employee"),
             ("memory", U(r"\u8bb0\u5fc6"), "/memory", "knowledge", "store_manager"),
@@ -4415,6 +4469,10 @@ class App(BaseHTTPRequestHandler):
             ("automation", U(r"\u81ea\u52a8\u5316"), "/automation", "execution", "admin"),
             ("mobile", U(r"\u79fb\u52a8\u5916\u52e4"), "/mobile", "execution", "employee"),
             ("settings", U(r"\u8bbe\u7f6e"), "/settings", "system", "admin"),
+            ("boss_workspace", U(r"\u8001\u677f\u5de5\u4f5c\u53f0"), "/boss", "system", "boss"),
+            ("employee_workspace", U(r"\u5458\u5de5\u5de5\u4f5c\u53f0"), "/employee-workspace", "system", "employee"),
+            ("risk_center", U(r"\u98ce\u9669\u4e2d\u5fc3"), "/risks", "system", "store_manager"),
+            ("decision_center", U(r"\u51b3\u7b56\u4e2d\u5fc3"), "/decisions", "system", "store_manager"),
             ("audit", U(r"\u5ba1\u8ba1"), "/timeline", "system", "admin"),
             ("health", U(r"\u5065\u5eb7"), "/system/modules", "system", "admin"),
         ]
@@ -4609,6 +4667,124 @@ class App(BaseHTTPRequestHandler):
             return self.json_out({"ok": False, "message": "no permission"}, code=403)
         return self.json_out({"ok": True, "message": U(r"\u7cfb\u7edf\u8bbe\u7f6e API \u5df2\u9884\u7559\uff0c\u5bc6\u94a5\u4ec5\u5141\u8bb8\u73af\u5883\u53d8\u91cf\u914d\u7f6e\u3002")})
 
+    def can_manage_sap_sync(self, user):
+        return bool(user and user["role"] in ("boss", "admin", "finance", "purchasing"))
+
+    def sap_sync_config_status(self):
+        required = ["SAP_HOST", "SAP_DB", "SAP_USER", "SAP_PASSWORD"]
+        missing = [k for k in required if not os.environ.get(k) or os.environ.get(k) == "change-me"]
+        if missing:
+            return False, [U(r"\u7f3a\u5c11\u6216\u672a\u6b63\u5f0f\u914d\u7f6e\uff1a") + ", ".join(missing), U(r"\u5bc6\u7801\u4e0d\u5141\u8bb8\u5199\u5165 GitHub\uff0c\u8bf7\u5728 .env \u6216\u670d\u52a1\u5668\u73af\u5883\u53d8\u91cf\u914d\u7f6e\u3002")]
+        return True, [U(r"SAP \u8fde\u63a5\u73af\u5883\u53d8\u91cf\u5df2\u914d\u7f6e\uff0cAPI \u4e0d\u8fd4\u56de\u5bc6\u94a5\u3002")]
+
+    def sap_sync_freshness(self, last_row=None):
+        now = ts()
+        if not last_row:
+            return "unknown", U(r"SAP \u6570\u636e\u5c1a\u672a\u540c\u6b65\uff0cAI \u7ecf\u8425\u5206\u6790\u53ef\u80fd\u4e0d\u5b8c\u6574\u3002")
+        if last_row["status"] in ("failed", "partial_success"):
+            return "error", U(r"SAP \u540c\u6b65\u6700\u8fd1\u5931\u8d25\u6216\u90e8\u5206\u5931\u8d25\uff0cAI \u4e0d\u5e94\u505a\u5f3a\u7ed3\u8bba\u3002")
+        finished = last_row["finished_at"] or last_row["started_at"] or 0
+        age = now - finished
+        if age <= 24 * 3600:
+            return "fresh", U(r"\u57fa\u4e8e\u6700\u65b0 SAP \u540c\u6b65\u6570\u636e\u3002")
+        if age <= 48 * 3600:
+            return "stale", U(r"SAP \u6570\u636e\u8d85\u8fc7 24 \u5c0f\u65f6\u672a\u66f4\u65b0\uff0cAI \u5206\u6790\u9700\u8c28\u614e\u3002")
+        return "outdated", U(r"SAP \u6570\u636e\u8d85\u8fc7 48 \u5c0f\u65f6\u672a\u66f4\u65b0\uff0c\u8bf7\u68c0\u67e5\u540c\u6b65\u3002")
+
+    def sap_sync_status_payload(self):
+        with db() as conn:
+            history_rows = conn.execute("select * from sap_sync_history order by started_at desc, id desc limit 30").fetchall()
+            last = history_rows[0] if history_rows else None
+            lock = conn.execute("select * from job_locks where job_name='sap_b1_sync'").fetchone()
+        configured, config_status = self.sap_sync_config_status()
+        freshness, warning = self.sap_sync_freshness(last)
+        return {
+            "ok": True,
+            "enabled": os.environ.get("SAP_SYNC_ENABLED", "true").lower() == "true",
+            "schedule_time": os.environ.get("SAP_SYNC_TIME", "22:00"),
+            "timezone": os.environ.get("APP_TIMEZONE", "Asia/Shanghai"),
+            "next_run_time": os.environ.get("SAP_SYNC_TIME", "22:00"),
+            "last_status": last["status"] if last else "never_run",
+            "last_sync_time": dt(last["finished_at"] or last["started_at"]) if last else U(r"\u4ece\u672a\u540c\u6b65"),
+            "freshness": freshness,
+            "warning": warning,
+            "configured": configured,
+            "config_status": config_status,
+            "lock": row_dict(lock) if lock else {"job_name": "sap_b1_sync", "lock_status": "free"},
+            "history": [row_dict(r) for r in history_rows],
+        }
+
+    def run_sap_sync_stub(self, trigger_type="manual", user=None, retry_sync_id=""):
+        if not self.can_manage_sap_sync(user):
+            return {"ok": False, "message": "no permission"}, 403
+        now = ts()
+        timeout = int(os.environ.get("SAP_SYNC_LOCK_TIMEOUT_MINUTES", "120") or 120) * 60
+        with db() as conn:
+            lock = conn.execute("select * from job_locks where job_name='sap_b1_sync'").fetchone()
+            if lock and lock["lock_status"] == "running" and (lock["expires_at"] or 0) > now:
+                return {"ok": False, "message": "SAP sync is already running."}, 409
+            conn.execute("insert or replace into job_locks(job_name,lock_status,locked_at,locked_by,expires_at) values(?,?,?,?,?)", ("sap_b1_sync", "running", now, str(user["id"]), now + timeout))
+            sync_id = "SAP-" + uuid.uuid4().hex[:10]
+            configured, config_status = self.sap_sync_config_status()
+            status = "skipped" if not configured else "pending"
+            error = "" if configured else U(r"SAP \u73af\u5883\u53d8\u91cf\u672a\u5b8c\u6574\uff0c\u672c\u6b21\u4e0d\u6267\u884c\u771f\u5b9e\u540c\u6b65\u3002")
+            cur = conn.execute("insert into sap_sync_history(sync_id,job_name,trigger_type,status,started_at,finished_at,duration_seconds,records_read,records_written,records_updated,records_failed,error_message,log_path,created_by) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (sync_id, "sap_b1_sync", trigger_type, status, now, now, 0, 0, 0, 0, 0, error, "", user["id"]))
+            conn.execute("update job_locks set lock_status='free', expires_at=? where job_name='sap_b1_sync'", (now,))
+            conn.execute("insert into notifications(notification_id,channel,title,body,recipient_user_id,status,related_object_type,related_object_id,created_by,created_at) values(?,?,?,?,?,?,?,?,?,?)", ("N-"+uuid.uuid4().hex[:10], "in_app", U(r"SAP \u540c\u6b65") + " " + status, error or U(r"SAP \u540c\u6b65\u5df2\u8bb0\u5f55\uff0c\u8bf7\u5728\u670d\u52a1\u5668\u8c03\u5ea6\u4e2d\u6267\u884c\u771f\u5b9e\u540c\u6b65\u547d\u4ee4\u3002"), user["id"], "unread", "sap_sync", cur.lastrowid, user["id"], now))
+        self.log_action(user, "sap_sync_triggered", "sap_sync", cur.lastrowid, trigger_type)
+        return {"ok": True, "sync_id": sync_id, "status": status, "message": error or U(r"SAP \u540c\u6b65\u4efb\u52a1\u5df2\u8bb0\u5f55\u3002")}, 200
+
+    def data_pipeline_payload(self):
+        sap = self.sap_sync_status_payload()
+        return {"ok": True, "pipelines": [
+            {"name": "SAP B1 Sync", "status": sap["last_status"], "last_run": sap["last_sync_time"], "next_run": sap["next_run_time"], "records_processed": 0, "error_count": 0 if sap["last_status"] not in ("failed","error") else 1, "url": "/sap-sync"},
+            {"name": "Document Processing", "status": "ready", "last_run": "", "next_run": "on_upload", "records_processed": 0, "error_count": 0, "url": "/documents"},
+            {"name": "Knowledge Processing", "status": "ready", "last_run": "", "next_run": "on_review", "records_processed": 0, "error_count": 0, "url": "/knowledge"},
+            {"name": "AI Context Processing", "status": "ready", "last_run": "", "next_run": "on_request", "records_processed": 0, "error_count": 0, "url": "/jarvis"},
+            {"name": "Report Generation", "status": "ready", "last_run": "", "next_run": "manual", "records_processed": 0, "error_count": 0, "url": "/reports"},
+            {"name": "Automation Jobs", "status": "ready", "last_run": "", "next_run": "manual", "records_processed": 0, "error_count": 0, "url": "/automation"},
+        ]}
+
+    def data_pipeline_page(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        if not self.can_manage_sap_sync(user):
+            return self.dashboard(user)
+        cards = "".join(self.card(p["name"], p["status"] + " · " + U(r"\u4e0b\u6b21 ") + str(p["next_run"]), p["url"], "btn", True) for p in self.data_pipeline_payload()["pipelines"])
+        self.out(layout(U(r"\u6570\u636e\u7ba1\u9053"), "<div class='grid'>" + cards + "</div>", user=user, wide=True))
+
+    def api_sap_sync_get(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if not self.can_manage_sap_sync(user):
+            return self.json_out({"ok": False, "message": "no permission"}, code=403)
+        if path == "/api/sap/sync/status":
+            return self.json_out(self.sap_sync_status_payload())
+        if path == "/api/sap/sync/history":
+            return self.json_out({"ok": True, "history": self.sap_sync_status_payload()["history"]})
+        if path == "/api/sap/sync/health":
+            s = self.sap_sync_status_payload()
+            return self.json_out({"ok": True, "scheduler_enabled": s["enabled"], "freshness": s["freshness"], "last_status": s["last_status"], "next_run_time": s["next_run_time"]})
+        if path.startswith("/api/sap/sync/logs/"):
+            return self.json_out({"ok": True, "message": U(r"\u65e5\u5fd7\u8def\u5f84\u4ec5\u663e\u793a\u5b89\u5168\u5360\u4f4d\uff0c\u4e0d\u8fd4\u56de\u8fde\u63a5\u4e32\u6216\u5bc6\u94a5\u3002"), "log": ""})
+        if path == "/api/data-pipeline":
+            return self.json_out(self.data_pipeline_payload())
+        if path == "/api/system/data-freshness":
+            s = self.sap_sync_status_payload()
+            return self.json_out({"ok": True, "sap_data_freshness": s["freshness"], "warning": s["warning"]})
+        return self.json_out({"ok": False, "message": "unknown sap sync api"}, code=404)
+
+    def api_sap_sync_post(self, user, path):
+        if path == "/api/sap/sync/run":
+            result, code = self.run_sap_sync_stub("manual", user)
+            return self.json_out(result, code=code)
+        if path.startswith("/api/sap/sync/retry/"):
+            sync_id = path.rsplit("/", 1)[-1]
+            result, code = self.run_sap_sync_stub("retry", user, retry_sync_id=sync_id)
+            return self.json_out(result, code=code)
+        return self.json_out({"ok": False, "message": "unknown sap sync write api"}, code=404)
+
     def store_operations(self, user):
         user = self.require_login(user)
         if not user:
@@ -4764,7 +4940,16 @@ class App(BaseHTTPRequestHandler):
         checks["hr_performance_engine_status"] = "ready"
         checks["customer_growth_engine_status"] = "ready"
         checks["platform_kernel_status"] = "ready"
-        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task020", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
+        try:
+            sap_status = self.sap_sync_status_payload()
+            checks["sap_sync_scheduler_status"] = "enabled" if sap_status["enabled"] else "disabled"
+            checks["sap_data_freshness"] = sap_status["freshness"]
+            checks["sap_sync_next_run_time"] = sap_status["next_run_time"]
+            checks["sap_sync_last_status"] = sap_status["last_status"]
+        except Exception as exc:
+            checks["sap_sync_scheduler_status"] = "error"
+            checks["sap_sync_error"] = str(exc)
+        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task021", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
 
     def api_health(self):
         return self.json_out(self.health_payload())

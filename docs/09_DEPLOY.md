@@ -58,3 +58,8 @@
 - 不在 README 或 docs 中写真实服务器密码
 - 不删除生产数据库
 - 不覆盖上传文件目录
+## Task021 SAP Nightly Sync
+
+Production should schedule SAP B1 sync every day at 22:00 server local time.
+
+Use `.env` for all credentials and schedule settings. Recommended production scheduler is cron or systemd timer. See `docs/52_SAP_NIGHTLY_SYNC.md`.

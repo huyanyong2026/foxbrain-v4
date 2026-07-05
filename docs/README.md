@@ -56,6 +56,7 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [49_NOTIFICATION_CENTER.md](49_NOTIFICATION_CENTER.md)
 - [50_WORKSPACE_SYSTEM.md](50_WORKSPACE_SYSTEM.md)
 - [51_DECISION_RISK_CENTER.md](51_DECISION_RISK_CENTER.md)
+- [52_SAP_NIGHTLY_SYNC.md](52_SAP_NIGHTLY_SYNC.md)
 
 ## Codex Tasks
 
@@ -77,6 +78,7 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [Task018 HR Performance Incentive](CODEX_TASKS/Task018_HR_Performance_Incentive.md)
 - [Task019 Customer Membership Private Domain](CODEX_TASKS/Task019_Customer_Membership_Private_Domain.md)
 - [Task020 Systemization Platform Kernel](CODEX_TASKS/Task020_Systemization_Platform_Kernel.md)
+- [Task021 System Integration SAP Nightly Sync](CODEX_TASKS/Task021_System_Integration_SAP_Nightly_Sync.md)
 
 Future tasks should use folders:
 

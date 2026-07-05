@@ -320,6 +320,19 @@ Customer APIs must protect private data and must not invent customer profiles or
 
 Platform APIs must not expose secrets or restricted details.
 
+## Task021 SAP Nightly Sync API
+
+- `GET /api/sap/sync/status`
+- `GET /api/sap/sync/history`
+- `POST /api/sap/sync/run`
+- `POST /api/sap/sync/retry/{sync_id}`
+- `GET /api/sap/sync/logs/{sync_id}`
+- `GET /api/sap/sync/health`
+- `GET /api/data-pipeline`
+- `GET /api/system/data-freshness`
+
+SAP sync APIs never return credentials or raw connection strings.
+
 ## Future API
 
 - `POST /api/files/parse`

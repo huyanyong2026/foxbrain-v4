@@ -42,3 +42,8 @@
 The Business Cockpit is one of the main structured inputs for report drafts.
 
 Report output must keep the same data principle as the cockpit: show waiting/empty state when real SAP B1 or reviewed internal data is not available.
+## Task021 SAP Freshness Integration
+
+Business Cockpit should show SAP sync freshness, last sync status and a link to `/sap-sync`.
+
+If SAP data is stale or failed, the cockpit must not pretend business data is current.

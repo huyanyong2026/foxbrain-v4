@@ -59,3 +59,8 @@ It must not expose passwords, database credentials, API keys, tokens, or server 
 - Do not delete production database during deployment.
 - Run syntax checks before restart.
 - Keep rollback-ready backups before each upgrade.
+## Task021 SAP Nightly Sync Deployment
+
+Add safe environment variables from `.env.example`, then configure either cron or systemd timer to run the SAP sync command at 22:00.
+
+Do not put SAP credentials in GitHub. Disable with `SAP_SYNC_ENABLED=false` for rollback.

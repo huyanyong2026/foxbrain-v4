@@ -38,3 +38,10 @@
 The AI CEO Daily Briefing can be reused as the default data source and structure for the CEO Daily Report template.
 
 Daily report drafts still require human review before becoming official.
+## Task021 SAP Freshness Rule
+
+AI CEO should reference SAP sync status.
+
+- Fresh data: say analysis is based on latest SAP sync.
+- Stale or outdated data: show warning and avoid strong conclusions.
+- No data: show clean empty state.

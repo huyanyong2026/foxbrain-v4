@@ -278,6 +278,22 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - Global Timeline
 - Health check now reports Platform Kernel status
 
+## V4 Task021 Completed
+
+- Deep System Integration
+- Data Pipeline Center
+- SAP nightly sync schedule prepared for 22:00
+- SAP sync history model
+- SAP sync job lock model
+- SAP sync status page upgrade
+- Manual SAP sync trigger API
+- SAP sync retry and health APIs
+- Data freshness indicator
+- Notification integration for sync result
+- Production scheduler docs
+- `.env.example` schedule variables
+- Health check now reports Task021 sync status
+
 ## V4 Routes
 
 - `/`
@@ -301,6 +317,7 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - `/settings`
 - `/system/modules`
 - `/system/data-readiness`
+- `/data-pipeline`
 - `/notifications`
 - `/risks`
 - `/timeline`
@@ -502,6 +519,14 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - `GET /api/risks`
 - `POST /api/risks`
 - `GET /api/timeline/global`
+- `GET /api/sap/sync/status`
+- `GET /api/sap/sync/history`
+- `POST /api/sap/sync/run`
+- `POST /api/sap/sync/retry/{sync_id}`
+- `GET /api/sap/sync/logs/{sync_id}`
+- `GET /api/sap/sync/health`
+- `GET /api/data-pipeline`
+- `GET /api/system/data-freshness`
 
 ## Security
 

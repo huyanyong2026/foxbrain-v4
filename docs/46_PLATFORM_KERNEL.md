@@ -31,3 +31,7 @@ Platform Kernel makes FoxBrain feel like one enterprise AI operating system inst
 ## Safety
 
 Kernel APIs expose status and context only. Secrets are never returned.
+
+## Task021 Integration
+
+The kernel now includes SAP sync, data pipeline, data freshness and scheduler health as first-class system status.
