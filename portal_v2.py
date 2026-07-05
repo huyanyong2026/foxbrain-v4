@@ -435,9 +435,15 @@ create table if not exists knowledge_items(
         ensure_column(conn, "knowledge_items", "auto_tags", "auto_tags text")
         ensure_column(conn, "knowledge_items", "manual_tags", "manual_tags text")
         ensure_column(conn, "knowledge_items", "embedding_status", "embedding_status text not null default 'pending'")
+        ensure_column(conn, "knowledge_items", "owner", "owner text")
+        ensure_column(conn, "knowledge_items", "department", "department text")
+        ensure_column(conn, "knowledge_items", "version", "version text not null default '1.0'")
+        ensure_column(conn, "knowledge_items", "retention_policy", "retention_policy text not null default 'standard'")
+        ensure_column(conn, "knowledge_items", "deleted_at", "deleted_at integer")
         conn.execute("create index if not exists idx_knowledge_status on knowledge_items(status)")
         conn.execute("create index if not exists idx_knowledge_object on knowledge_items(object_type, object_id)")
         conn.execute("create index if not exists idx_knowledge_visibility on knowledge_items(visibility)")
+        conn.execute("create index if not exists idx_knowledge_governance on knowledge_items(owner, department, retention_policy)")
         conn.execute(
             """
 create table if not exists uploaded_files(
@@ -838,6 +844,13 @@ create table if not exists agent_tools(
 """
         )
         conn.execute("create index if not exists idx_agent_tools_status on agent_tools(status)")
+        ensure_column(conn, "agent_tools", "tool_category", "tool_category text")
+        ensure_column(conn, "agent_tools", "tool_version", "tool_version text not null default 'v1'")
+        ensure_column(conn, "agent_tools", "risk_level", "risk_level text not null default 'low'")
+        ensure_column(conn, "agent_tools", "approval_required", "approval_required integer not null default 0")
+        ensure_column(conn, "agent_tools", "audit_event", "audit_event text")
+        conn.execute("create index if not exists idx_agent_tools_category on agent_tools(tool_category)")
+        conn.execute("create index if not exists idx_agent_tools_risk on agent_tools(risk_level, approval_required)")
         conn.execute(
             """
 create table if not exists jarvis_conversations(
@@ -2076,6 +2089,10 @@ class App(BaseHTTPRequestHandler):
             return self.knowledge_form(user)
         if path == "/api/dashboard/summary":
             return self.json_out(load_summary())
+        if path.startswith("/api/dashboard/"):
+            return self.api_dashboard_get(user, path)
+        if path == "/api/dashboard/ceo":
+            return self.api_ceo_dashboard(user)
         if path.startswith("/api/inventory-decision"):
             return self.api_inventory_decision_get(user, path)
         if path.startswith("/api/finance"):
@@ -3525,6 +3542,32 @@ class App(BaseHTTPRequestHandler):
         }
         return self.json_out({"ok": True, "endpoint": mapping.get(path, "sap placeholder"), "data": load_summary(), "note": "placeholder; existing SAP sync is unchanged"})
 
+    def api_ceo_dashboard(self, user):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        s = load_summary()
+        return self.json_out({
+            "ok": True,
+            "dashboard": "ceo",
+            "sales": {
+                "yesterday_sales": s.get("yesterday_sales", 0),
+                "month_sales": s.get("month_sales", 0),
+                "completion_rate": s.get("completion_rate", 0),
+            },
+            "gross_profit": {
+                "month_gross_profit": s.get("month_gross_profit", 0),
+                "gross_margin": s.get("yesterday_gross_margin", 0),
+            },
+            "inventory_alerts": {
+                "inventory_amount": s.get("inventory_amount", 0),
+                "risk_count": s.get("risk_count", 0),
+            },
+            "pending_approvals": self.os_approvals_payload(user)["approvals"][:10],
+            "sync_status": self.sap_sync_status_payload(),
+            "ai_recommendations": s.get("ai_suggestions", []),
+            "limitations": [U(r"\u4eea\u8868\u76d8\u4ec5\u5f15\u7528\u5df2\u63a5\u5165\u7684 SAP \u6458\u8981\u548c\u672c\u5730\u6570\u636e\uff0c\u4e0d\u7f16\u9020\u7ecf\u8425\u4e8b\u5b9e\u3002")],
+        })
+
     def agents(self, user):
         user = self.require_login(user)
         if not user:
@@ -3730,17 +3773,120 @@ class App(BaseHTTPRequestHandler):
         self.log_action(user, "ai_query", "knowledge", None, question)
         return self.ai_assistant(user, answer_data, question)
 
+    def knowledge_platform_payload(self, user):
+        with db() as conn:
+            total = conn.execute("select count(*) c from knowledge_items where deleted_at is null").fetchone()["c"]
+            chunks = conn.execute("select count(*) c from knowledge_chunks").fetchone()["c"]
+            pending = conn.execute("select count(*) c from knowledge_items where deleted_at is null and status in ('uploaded','draft','summarized','pending_review')").fetchone()["c"]
+        return {
+            "ok": True,
+            "platform": "enterprise_knowledge_platform",
+            "stability_policy": "additive_only_preserve_existing_features",
+            "pack_alignment": ["Pack01 foundation", "Pack02 SAP AI framework", "Pack03 knowledge platform"],
+            "document_center": {
+                "upload": "ready",
+                "auto_parse": "framework_ready",
+                "ai_summary": "rule_based_placeholder",
+                "ai_category": "rule_based_placeholder",
+            },
+            "retrieval": {
+                "keyword_search": "ready",
+                "semantic_search": "qdrant_contract_ready",
+                "hybrid_search": "contract_ready",
+                "citations_required": True,
+                "permission_enforced": True,
+            },
+            "governance": self.knowledge_governance_payload()["governance"],
+            "knowledge_graph": self.knowledge_graph_contract_payload()["knowledge_graph"],
+            "ai_access": {
+                "agents": ["AI CEO", "AI CFO", "AI Store Manager", "AI Inventory Manager", "AI Product Manager", "AI Customer Service", "AI HR"],
+                "entry": "/jarvis",
+                "answer_rule": "answer_with_citations_and_limitations",
+            },
+            "metrics": {
+                "knowledge_items": total,
+                "chunks": chunks,
+                "pending_review": pending,
+                "worker_time": os.environ.get("KNOWLEDGE_INDEX_TIME", "02:00"),
+            },
+            "user": {"id": user["id"], "role": user["role"], "store": user["store"]},
+        }
+
+    def knowledge_governance_payload(self):
+        return {
+            "ok": True,
+            "governance": {
+                "required_metadata": ["owner", "department", "tags", "version", "visibility", "retention_policy"],
+                "visibility_levels": ["public_internal", "manager_only", "finance_only", "owner_only", "restricted"],
+                "lifecycle": ["uploaded", "parsed", "summarized", "pending_review", "ready", "archived", "deleted_recoverable"],
+                "retention_policies": ["standard", "finance", "hr", "contract", "training"],
+                "delete_policy": "soft_delete_recoverable",
+                "approval_policy": "external_research_and_sensitive_documents_need_human_review",
+                "audit_log": "activity_log",
+            },
+        }
+
+    def knowledge_retrieval_contract_payload(self):
+        return {
+            "ok": True,
+            "retrieval_contract": {
+                "query_inputs": ["question", "scope", "role", "store", "object_type", "object_id"],
+                "search_modes": ["keyword", "semantic", "hybrid"],
+                "ranking_signals": ["permission", "title_match", "semantic_score", "recency", "source_quality"],
+                "response_fields": ["answer", "citations", "limitations", "follow_up_actions"],
+                "citation_fields": ["title", "url", "knowledge_id", "chunk_id", "source_ref"],
+                "permission_rule": "filter_sources_before_answer_generation",
+                "no_answer_rule": "state_missing_source_do_not_invent",
+                "reindex": {"manual": True, "scheduled_time": os.environ.get("KNOWLEDGE_INDEX_TIME", "02:00")},
+            },
+        }
+
+    def knowledge_graph_contract_payload(self):
+        return {
+            "ok": True,
+            "knowledge_graph": {
+                "entities": ["products", "brands", "stores", "employees", "customers", "suppliers", "contracts", "training", "meetings", "knowledge"],
+                "relationships": ["belongs_to", "supplied_by", "sold_in", "trained_by", "mentions", "documented_by", "approved_by"],
+                "ai_queryable": True,
+                "source_module": "knowledge_center",
+                "build_status": "framework_ready",
+            },
+        }
+
     def api_knowledge_get(self, user, path):
         if not user:
             return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if path == "/api/knowledge/platform":
+            return self.json_out(self.knowledge_platform_payload(user))
+        if path == "/api/knowledge/ingestion/status":
+            return self.json_out({
+                "ok": True,
+                "service": "knowledge_ingestion",
+                "pipeline": ["upload", "ocr_if_needed", "metadata", "chunking", "embedding", "index", "permission", "search"],
+                "supported_formats": ["pdf", "word", "excel", "powerpoint", "images", "markdown", "txt"],
+                "planned_formats": ["audio", "video"],
+                "ocr_status": "interface_ready",
+                "semantic_search": "qdrant_foundation_ready",
+                "metadata": "ready",
+                "version_history": "framework_ready",
+                "access_control": "visibility_and_role_based",
+                "worker_job": os.environ.get("KNOWLEDGE_INDEX_TIME", "02:00"),
+                "policy": "Human review required before external research becomes formal knowledge.",
+            })
+        if path == "/api/knowledge/governance":
+            return self.json_out(self.knowledge_governance_payload())
+        if path == "/api/knowledge/retrieval-contract":
+            return self.json_out(self.knowledge_retrieval_contract_payload())
+        if path == "/api/knowledge/graph-contract":
+            return self.json_out(self.knowledge_graph_contract_payload())
         if path in ("/api/knowledge", "/api/knowledge/search"):
             query = parse_qs(urlparse(self.path).query)
             q = query.get("q", [""])[0].strip()
             params = []
-            sql = "select * from knowledge_items"
+            sql = "select * from knowledge_items where deleted_at is null"
             if q:
                 like = "%" + q + "%"
-                sql += " where title like ? or body like ? or summary like ? or keywords like ? or tags like ?"
+                sql += " and (title like ? or body like ? or summary like ? or keywords like ? or tags like ?)"
                 params = [like, like, like, like, like]
             sql += " order by updated_at desc limit 100"
             with db() as conn:
@@ -3854,6 +4000,182 @@ class App(BaseHTTPRequestHandler):
             "top_stores": s.get("top_stores", []) or [],
             "top_brands": s.get("top_brands", []) or [],
         }
+
+    def dashboard_kpi_service_payload(self, user, scope="company"):
+        data = self.cockpit_data()
+        m = data["metrics"]
+        sap = self.sap_sync_status_payload()
+        return {
+            "ok": True,
+            "service": "dashboard_kpi_service",
+            "scope": scope,
+            "data_source": "unified_data_service",
+            "business_data_only": True,
+            "freshness": {
+                "sap": sap["freshness"],
+                "last_sync_time": sap["last_sync_time"],
+                "next_run_time": sap["next_run_time"],
+                "data_date": m["data_date"],
+            },
+            "kpis": {
+                "sales": {
+                    "today_sales": m["today_sales"],
+                    "yesterday_sales": m["yesterday_sales"],
+                    "month_sales": m["month_sales"],
+                    "completion_rate": m["completion_rate"],
+                },
+                "profit": {
+                    "gross_profit": m["gross_profit"],
+                    "gross_margin": m["gross_margin"],
+                    "cash_flow_summary": "pending_real_finance_sync",
+                },
+                "inventory": {
+                    "inventory_amount": m["inventory_amount"],
+                    "risk_count": m["risk_count"],
+                },
+                "stores": {
+                    "ranking": data["top_stores"],
+                    "scope_rule": "store_manager_only_authorized_store",
+                },
+                "brands": {
+                    "ranking": data["top_brands"],
+                },
+            },
+            "limitations": [data["empty_message"]] if not data["has_data"] else [],
+        }
+
+    def dashboard_alert_service_payload(self, user, scope="company"):
+        data = self.cockpit_data()
+        m = data["metrics"]
+        sap = self.sap_sync_status_payload()
+        alerts = []
+        if (m["risk_count"] or 0):
+            alerts.append({
+                "alert_id": "inventory-risk",
+                "type": "inventory",
+                "level": "warning",
+                "title": U(r"\u5e93\u5b58\u98ce\u9669\u63d0\u9192"),
+                "message": U(r"\u5b58\u5728\u5e93\u5b58\u98ce\u9669\u6570\u91cf\uff0c\u9700\u8981\u68c0\u67e5\u6ede\u9500\u3001\u5c3a\u7801\u7ed3\u6784\u548c\u8c03\u62e8\u673a\u4f1a\u3002"),
+                "evidence": [{"source": "summary", "field": "risk_count", "value": m["risk_count"]}],
+                "approval_required": False,
+            })
+        if sap["last_status"] in ("failed", "error"):
+            alerts.append({
+                "alert_id": "sap-sync-failure",
+                "type": "sync",
+                "level": "critical",
+                "title": U(r"SAP \u540c\u6b65\u5f02\u5e38"),
+                "message": U(r"\u9a7e\u9a76\u8231\u6570\u636e\u53ef\u80fd\u4e0d\u65b0\u9c9c\uff0c\u9700\u5148\u5904\u7406 SAP \u540c\u6b65\u3002"),
+                "evidence": [{"source": "sap_sync_status", "field": "last_status", "value": sap["last_status"]}],
+                "approval_required": False,
+            })
+        if not data["has_data"]:
+            alerts.append({
+                "alert_id": "missing-business-data",
+                "type": "data",
+                "level": "info",
+                "title": U(r"\u7b49\u5f85\u7ecf\u8425\u6570\u636e"),
+                "message": data["empty_message"],
+                "evidence": [{"source": "dashboard_kpi_service", "field": "has_data", "value": False}],
+                "approval_required": False,
+            })
+        return {
+            "ok": True,
+            "service": "dashboard_alert_service",
+            "scope": scope,
+            "component": "alerts",
+            "decoupled_from_business_data": True,
+            "alert_types": ["low_inventory", "abnormal_margin", "sync_failures", "expiring_contracts", "high_value_inactive_customers"],
+            "alerts": alerts,
+            "high_risk_actions_require_approval": True,
+        }
+
+    def dashboard_recommendation_service_payload(self, user, scope="company"):
+        data = self.cockpit_data()
+        m = data["metrics"]
+        suggestions = []
+        raw = data["ai_suggestions"][:5]
+        for idx, text in enumerate(raw, 1):
+            suggestions.append({
+                "recommendation_id": f"ai-summary-{idx}",
+                "title": str(text),
+                "basis": [{"source": "dashboard_summary", "field": "ai_suggestions", "value": str(text)}],
+                "risk_level": "medium",
+                "approval_required": True,
+                "review_note": U(r"\u7ecf\u8425\u5efa\u8bae\u9700\u7ba1\u7406\u8005\u6838\u5bf9\u4f9d\u636e\u540e\u518d\u6267\u884c\u3002"),
+            })
+        if not suggestions:
+            suggestions.append({
+                "recommendation_id": "data-first",
+                "title": U(r"\u5148\u786e\u4fdd SAP B1 \u6bcf\u65e5\u540c\u6b65\u7a33\u5b9a\uff0c\u518d\u751f\u6210\u7ecf\u8425\u5efa\u8bae\u3002"),
+                "basis": [
+                    {"source": "sap_sync_status", "field": "next_run_time", "value": self.sap_sync_status_payload()["next_run_time"]},
+                    {"source": "dashboard_kpi_service", "field": "data_date", "value": m["data_date"]},
+                ],
+                "risk_level": "low",
+                "approval_required": False,
+                "review_note": U(r"\u8fd9\u662f\u6570\u636e\u57fa\u7840\u5efa\u8bae\uff0c\u4e0d\u6d89\u53ca\u4ef7\u683c\u3001\u5408\u540c\u6216\u8d22\u52a1\u6267\u884c\u3002"),
+            })
+        return {
+            "ok": True,
+            "service": "dashboard_recommendation_service",
+            "scope": scope,
+            "component": "ai_recommendations",
+            "decoupled_from_business_data": True,
+            "recommendations": suggestions,
+            "rule": "business_recommendations_must_show_basis_for_manager_review",
+        }
+
+    def dashboard_service_payload(self, user, dashboard_type="ceo"):
+        kpis = self.dashboard_kpi_service_payload(user, dashboard_type)
+        alerts = self.dashboard_alert_service_payload(user, dashboard_type)
+        recommendations = self.dashboard_recommendation_service_payload(user, dashboard_type)
+        widgets = {
+            "ceo": ["sales", "profit", "cash_flow_summary", "inventory_alerts", "store_ranking", "pending_approvals", "ai_recommendations", "sap_sync_health"],
+            "finance": ["revenue", "margin", "receivables", "payables", "cash_trend", "exception_alerts"],
+            "store": ["daily_sales", "conversion", "inventory_health", "staff_performance", "customer_activity", "suggested_replenishment"],
+        }.get(dashboard_type, ["sales", "alerts", "recommendations"])
+        return {
+            "ok": True,
+            "dashboard": dashboard_type,
+            "data_service": {
+                "name": "unified_dashboard_data_service",
+                "sources": ["sap_summary", "local_database", "knowledge_platform", "agent_framework"],
+                "kpi_endpoint": "/api/dashboard/kpis",
+                "alerts_endpoint": "/api/dashboard/alerts",
+                "recommendations_endpoint": "/api/dashboard/recommendations",
+            },
+            "widgets": widgets,
+            "business_data": kpis["kpis"],
+            "alerts_component": alerts,
+            "recommendations_component": recommendations,
+            "pending_approvals": self.os_approvals_payload(user)["approvals"][:10],
+            "sync_status": self.sap_sync_status_payload(),
+            "separation_rule": "ai_recommendations_and_alerts_are_independent_components_not_mixed_into_raw_business_data",
+        }
+
+    def api_dashboard_get(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if path == "/api/dashboard/service":
+            return self.json_out(self.dashboard_service_payload(user, "ceo"))
+        if path == "/api/dashboard/kpis":
+            return self.json_out(self.dashboard_kpi_service_payload(user))
+        if path == "/api/dashboard/alerts":
+            return self.json_out(self.dashboard_alert_service_payload(user))
+        if path == "/api/dashboard/recommendations":
+            return self.json_out(self.dashboard_recommendation_service_payload(user))
+        if path == "/api/dashboard/ceo":
+            return self.json_out(self.dashboard_service_payload(user, "ceo"))
+        if path == "/api/dashboard/finance":
+            if not self.can_view_finance(user):
+                return self.json_out({"ok": False, "message": "no permission"}, code=403)
+            return self.json_out(self.dashboard_service_payload(user, "finance"))
+        if path == "/api/dashboard/store":
+            if user["role"] not in ("boss", "admin", "store_manager"):
+                return self.json_out({"ok": False, "message": "no permission"}, code=403)
+            return self.json_out(self.dashboard_service_payload(user, "store"))
+        return self.json_out({"ok": False, "message": "unknown dashboard api"}, code=404)
 
     def role_can_manage(self, user):
         return bool(user and user["role"] in ("boss", "admin", "finance", "purchasing", "store_manager"))
@@ -4767,6 +5089,34 @@ class App(BaseHTTPRequestHandler):
             "history": [row_dict(r) for r in history_rows],
         }
 
+    def sap_connector_payload(self):
+        configured, config_status = self.sap_sync_config_status()
+        return {
+            "ok": True,
+            "system_of_record": "SAP",
+            "connector": {
+                "key": "sap_b1",
+                "mode": os.environ.get("SAP_DB_TYPE", "sqlserver"),
+                "db_direct_available": bool(os.environ.get("SAP_DB_HOST") or os.environ.get("SAP_HOST")),
+                "service_layer_available": bool(os.environ.get("SAP_API_BASE_URL")),
+                "configured": configured,
+                "config_status": config_status,
+                "write_policy": "read_only_until_explicit_business_rules",
+            },
+            "sync_interfaces": [
+                {"object": "products", "mode": "incremental", "status": "contract_ready"},
+                {"object": "inventory", "mode": "incremental", "status": "contract_ready"},
+                {"object": "members", "mode": "incremental", "status": "contract_ready"},
+                {"object": "sales", "mode": "incremental", "status": "contract_ready"},
+                {"object": "purchasing", "mode": "incremental", "status": "contract_ready"},
+            ],
+            "retry_policy": {
+                "safe_retry": True,
+                "conflict_detection": "planned",
+                "audit_log": "sap_sync_history",
+            },
+        }
+
     def run_sap_sync_stub(self, trigger_type="manual", user=None, retry_sync_id=""):
         if not self.can_manage_sap_sync(user):
             return {"ok": False, "message": "no permission"}, 403
@@ -4812,6 +5162,8 @@ class App(BaseHTTPRequestHandler):
             return self.json_out({"ok": False, "message": "login required"}, code=401)
         if not self.can_manage_sap_sync(user):
             return self.json_out({"ok": False, "message": "no permission"}, code=403)
+        if path == "/api/sap/sync/connector":
+            return self.json_out(self.sap_connector_payload())
         if path == "/api/sap/sync/status":
             return self.json_out(self.sap_sync_status_payload())
         if path == "/api/sap/sync/history":
@@ -5193,6 +5545,20 @@ class App(BaseHTTPRequestHandler):
             checks["sap_sync_error"] = str(exc)
         checks["operating_system_layer_status"] = "ready"
         checks["v5_enterprise_ai_os_status"] = "framework_ready"
+        checks["enterprise_pack_01_status"] = "aligned"
+        checks["enterprise_pack_02_sap_ai_status"] = "framework_ready"
+        checks["enterprise_pack_03_knowledge_status"] = "framework_ready"
+        checks["enterprise_pack_04_ai_agents_status"] = "framework_ready"
+        checks["knowledge_ingestion_pipeline_status"] = "contract_ready"
+        checks["knowledge_retrieval_contract_status"] = "contract_ready"
+        checks["knowledge_governance_status"] = "ready"
+        checks["agent_framework_status"] = "contract_ready"
+        checks["agent_approval_policy_status"] = "high_risk_requires_human_review"
+        checks["agent_audit_status"] = "activity_log"
+        checks["enterprise_pack_05_dashboard_status"] = "framework_ready"
+        checks["dashboard_data_service_status"] = "unified"
+        checks["dashboard_alert_component_status"] = "decoupled"
+        checks["dashboard_recommendation_component_status"] = "evidence_required"
         checks["v6_autonomous_worker_status"] = "scheduled" if os.environ.get("APP_ENV", "production") else "local"
         checks["worker_jobs"] = {
             "sap_sync": os.environ.get("SAP_SYNC_TIME", "22:00"),
@@ -5950,7 +6316,10 @@ class App(BaseHTTPRequestHandler):
             ("AI Marketing Manager", U(r"AI \u8425\u9500\u7ecf\u7406"), U(r"\u5185\u5bb9\u3001\u6d3b\u52a8\u3001\u54c1\u724c\u4f20\u64ad\u548c\u7d20\u6750\u3002"), "content,knowledge,research"),
             ("AI Training Manager", U(r"AI \u57f9\u8bad\u7ecf\u7406"), U(r"\u57f9\u8bad\u8bfe\u7a0b\u3001\u5458\u5de5\u6210\u957f\u548c\u77e5\u8bc6\u590d\u7528\u3002"), "employees,knowledge,tasks"),
             ("AI Customer Service", U(r"AI \u5ba2\u670d"), U(r"\u987e\u5ba2\u95ee\u9898\u3001\u552e\u540e\u3001\u4f1a\u5458\u7ef4\u62a4\u548c\u8bdd\u672f\u3002"), "members,knowledge"),
+            ("AI Supplier Manager", U(r"AI \u4f9b\u5e94\u5546\u7ecf\u7406"), U(r"\u4f9b\u5e94\u5546\u3001\u5408\u540c\u3001\u8d26\u671f\u548c\u4f9b\u8d27\u98ce\u9669\u5206\u6790\u3002"), "suppliers,contracts,purchasing,workflow"),
             ("AI Secretary", U(r"AI \u79d8\u4e66"), U(r"\u4f1a\u8bae\u7eaa\u8981\u3001\u4efb\u52a1\u62c6\u89e3\u3001\u63d0\u9192\u548c\u8bb0\u5f55\u3002"), "tasks,memory,automation"),
+            ("AI Meeting Manager", U(r"AI \u4f1a\u8bae\u7ecf\u7406"), U(r"\u4f1a\u8bae\u7eaa\u8981\u3001\u51b3\u8bae\u3001\u8ddf\u8fdb\u4efb\u52a1\u548c\u77e5\u8bc6\u5f52\u6863\u3002"), "meetings,tasks,knowledge,memory"),
+            ("AI Analytics Manager", U(r"AI \u5206\u6790\u7ecf\u7406"), U(r"\u9500\u552e\u3001\u5e93\u5b58\u3001\u5229\u6da6\u3001\u4f1a\u5458\u548c\u95e8\u5e97\u7efc\u5408\u5206\u6790\u3002"), "sap,reports,knowledge,graph"),
             ("AI Risk Officer", U(r"AI \u98ce\u9669\u5b98"), U(r"\u5b9a\u4ef7\u3001\u5e93\u5b58\u3001\u5408\u540c\u3001\u4f9b\u5e94\u5546\u548c\u73b0\u91d1\u6d41\u98ce\u9669\u3002"), "graph,risk,memory"),
         ]
         for name, role, desc, scope in agents:
@@ -5970,6 +6339,11 @@ class App(BaseHTTPRequestHandler):
             ("Add Timeline", U(r"\u5199\u5165\u65f6\u95f4\u8f74\uff0c\u9700\u4eba\u5de5\u5ba1\u6838"), "event", "timeline_id", "approve_agent_action"),
             ("Draft Content", U(r"\u751f\u6210\u5185\u5bb9\u8349\u7a3f"), "brief", "draft", "create_content"),
             ("Generate Summary", U(r"\u751f\u6210\u6458\u8981"), "text", "summary", "view_knowledge"),
+            ("Price Decision Draft", U(r"\u751f\u6210\u4ef7\u683c\u8c03\u6574\u8349\u6848\uff0c\u5fc5\u987b\u4eba\u5de5\u5ba1\u6279"), "pricing_context", "approval_request", "approve_agent_action"),
+            ("Contract Review Draft", U(r"\u5408\u540c\u5ba1\u6838\u5efa\u8bae\uff0c\u5fc5\u987b\u4eba\u5de5\u5ba1\u6279"), "contract_context", "approval_request", "approve_agent_action"),
+            ("Finance Action Draft", U(r"\u8d22\u52a1\u652f\u4ed8\u6216\u8d44\u91d1\u5efa\u8bae\uff0c\u5fc5\u987b\u4eba\u5de5\u5ba1\u6279"), "finance_context", "approval_request", "approve_agent_action"),
+            ("File Ingestion", U(r"\u6587\u4ef6\u4e0a\u4f20\u540e\u89e3\u6790\u5165\u5e93"), "file", "knowledge_item", "view_knowledge"),
+            ("Send Notification Draft", U(r"\u751f\u6210\u901a\u77e5\u8349\u7a3f\uff0c\u53d1\u9001\u524d\u9700\u5ba1\u6838"), "message", "notification_draft", "approve_agent_action"),
         ]
         for name, desc, input_schema, output_schema, perm in tools:
             if not conn.execute("select id from agent_tools where tool_name=?", (name,)).fetchone():
@@ -5977,6 +6351,28 @@ class App(BaseHTTPRequestHandler):
                     "insert into agent_tools(tool_id,tool_name,description,input_schema,output_schema,permission_required,status,created_at,updated_at) values(?,?,?,?,?,?,?,?,?)",
                     ("TOOL-" + uuid.uuid4().hex[:10], name, desc, input_schema, output_schema, perm, "active", now, now),
                 )
+        categories = {
+            "Search Knowledge": ("knowledge", "low", 0),
+            "Search Research": ("knowledge", "medium", 0),
+            "Search Memory": ("knowledge", "medium", 0),
+            "Query SAP Analysis": ("sap", "medium", 0),
+            "Query Graph": ("knowledge", "low", 0),
+            "Create Task": ("workflow", "medium", 1),
+            "Create Report": ("reporting", "medium", 1),
+            "Add Timeline": ("workflow", "medium", 1),
+            "Draft Content": ("files", "low", 0),
+            "Generate Summary": ("knowledge", "low", 0),
+            "Price Decision Draft": ("workflow", "high", 1),
+            "Contract Review Draft": ("workflow", "high", 1),
+            "Finance Action Draft": ("workflow", "high", 1),
+            "File Ingestion": ("files", "low", 0),
+            "Send Notification Draft": ("notifications", "medium", 1),
+        }
+        for tool_name, (category, risk, approval) in categories.items():
+            conn.execute(
+                "update agent_tools set tool_category=?, tool_version='v1', risk_level=?, approval_required=?, audit_event=? where tool_name=?",
+                (category, risk, approval, "agent_tool_" + tool_name.lower().replace(" ", "_"), tool_name),
+            )
 
     def agent_summary(self):
         with db() as conn:
@@ -6049,12 +6445,143 @@ class App(BaseHTTPRequestHandler):
 <div class="panel"><h2>{U(r'\u4eba\u5de5\u5ba1\u6279\u95f8\u95e8')}</h2>{self.bullets([U(r'\u521b\u5efa\u5206\u914d\u7ed9\u5458\u5de5\u7684\u4efb\u52a1\u9700\u8981\u5ba1\u6838'), U(r'\u5ba1\u6838\u5916\u90e8\u77e5\u8bc6\u9700\u8981\u4eba\u5de5\u786e\u8ba4'), U(r'\u4fee\u6539\u8bb0\u5fc6\u3001\u5b9a\u4ef7\u89c4\u5219\u3001\u53d1\u9001\u901a\u77e5\u3001\u53d1\u5e03\u5185\u5bb9\u90fd\u9700\u8981\u4eba\u5de5\u5ba1\u6838')])}</div>"""
         self.out(layout(U(r"\u591a\u667a\u80fd\u4f53\u534f\u540c"), body, user=user, wide=True))
 
+    def agent_framework_payload(self, user):
+        data = self.agent_summary()
+        return {
+            "ok": True,
+            "platform": "enterprise_multi_agent_framework",
+            "pack_alignment": ["Pack01 foundation", "Pack02 SAP AI", "Pack03 knowledge platform", "Pack04 AI agents"],
+            "runtime": self.agent_runtime_contract_payload()["runtime"],
+            "permissions": self.agent_permission_contract_payload(user)["permissions"],
+            "tool_interface": self.agent_tool_interface_payload()["tool_interface"],
+            "memory": self.agent_memory_contract_payload()["memory"],
+            "approval": self.agent_approval_policy_payload()["approval"],
+            "audit": self.agent_audit_contract_payload()["audit"],
+            "catalog": [row_dict(r) for r in data["roles"]],
+            "tools": [row_dict(t) for t in data["tools"]],
+        }
+
+    def agent_runtime_contract_payload(self):
+        return {
+            "ok": True,
+            "runtime": {
+                "steps": [
+                    "agent_request",
+                    "permission_check",
+                    "retrieve_knowledge",
+                    "query_sap_if_authorized",
+                    "reason",
+                    "generate_recommendation",
+                    "request_approval_if_needed",
+                    "execute_approved_workflow",
+                    "log_result",
+                ],
+                "high_risk_actions_blocked_until_approved": True,
+                "missing_data_rule": "return_limitation_do_not_invent",
+                "source_rule": "knowledge_and_sap_outputs_need_citations_or_limitations",
+            },
+        }
+
+    def agent_permission_contract_payload(self, user):
+        return {
+            "ok": True,
+            "permissions": {
+                "model": "role_based",
+                "current_user": {"id": user["id"], "role": user["role"], "store": user["store"]},
+                "roles": list(ROLES.keys()),
+                "rule": "agent_tool_permission_must_be_checked_before_execution",
+                "sensitive_scopes": ["pricing", "contract", "finance", "payment", "sap_write", "external_publish"],
+                "sensitive_scope_policy": "requires_human_approval_and_admin_or_boss_review",
+                "store_scope": "store_managers_only_see_authorized_store_data",
+            },
+        }
+
+    def agent_tool_interface_payload(self):
+        return {
+            "ok": True,
+            "tool_interface": {
+                "version": "v1",
+                "categories": ["sap", "knowledge", "workflow", "reporting", "notifications", "files"],
+                "required_fields": ["tool_id", "tool_name", "tool_category", "tool_version", "input_schema", "output_schema", "permission_required", "risk_level", "approval_required"],
+                "execution_contract": {
+                    "input": {"request_id": "string", "agent_id": "string", "user_id": "integer", "payload": "object"},
+                    "output": {"ok": "boolean", "result": "object", "citations": "array", "limitations": "array", "audit_id": "string"},
+                },
+                "versioning": "all_tools_expose_versioned_interfaces",
+            },
+        }
+
+    def agent_memory_contract_payload(self):
+        return {
+            "ok": True,
+            "memory": {
+                "short_term": "conversation_context",
+                "long_term": "enterprise_memory",
+                "knowledge_retrieval": "knowledge_center",
+                "audit_trail": "activity_log",
+                "write_policy": "important_memory_requires_human_review",
+            },
+        }
+
+    def agent_approval_policy_payload(self):
+        return {
+            "ok": True,
+            "approval": {
+                "required_for": ["price_change", "discount_policy", "contract_decision", "finance_payment", "sap_write", "external_publish", "mass_notification"],
+                "default_status": "pending",
+                "review_roles": ["boss", "admin", "finance"],
+                "actions": ["approve", "reject", "request_more_analysis", "edit_before_approval"],
+                "execution_rule": "no_high_risk_tool_execution_before_approval",
+            },
+        }
+
+    def agent_audit_contract_payload(self):
+        return {
+            "ok": True,
+            "audit": {
+                "log_table": "activity_log",
+                "events": ["agent_request", "permission_check", "tool_planned", "approval_requested", "approval_decided", "tool_executed", "agent_result"],
+                "required_fields": ["user_id", "agent_id", "tool_id", "action", "object_type", "object_id", "timestamp", "result"],
+                "retention": "standard_enterprise_audit_policy",
+            },
+        }
+
     def api_agents_get(self, user, path):
         if not user:
             return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if path == "/api/agents/framework":
+            return self.json_out(self.agent_framework_payload(user))
+        if path == "/api/agents/runtime-contract":
+            return self.json_out(self.agent_runtime_contract_payload())
+        if path == "/api/agents/permissions":
+            return self.json_out(self.agent_permission_contract_payload(user))
+        if path == "/api/agents/tool-interface":
+            return self.json_out(self.agent_tool_interface_payload())
+        if path == "/api/agents/memory-contract":
+            return self.json_out(self.agent_memory_contract_payload())
+        if path == "/api/agents/approval-policy":
+            return self.json_out(self.agent_approval_policy_payload())
+        if path == "/api/agents/audit-contract":
+            return self.json_out(self.agent_audit_contract_payload())
         if path.startswith(("/api/agents/workflows", "/api/agents/workflow-templates", "/api/agents/marketplace", "/api/agents/templates", "/api/agents/builder", "/api/agents/sandbox", "/api/agents/runtime", "/api/agents/approvals")):
             return self.api_v5_get(user, path)
         data = self.agent_summary()
+        if path == "/api/agents/registry":
+            return self.json_out({
+                "ok": True,
+                "registry": {
+                    "tool_interface": "shared",
+                    "permission_model": "role_based",
+                    "memory_abstraction": "memory_engine",
+                    "knowledge_access": "knowledge_center",
+                    "audit_logging": "activity_log",
+                    "runtime": "request_permission_retrieve_reason_approve_execute_log",
+                    "approval_policy": "high_risk_actions_require_human_review",
+                },
+                "initial_agents": ["CEO Agent", "Finance Agent", "Store Agent", "Inventory Agent", "Product Agent", "Customer Agent", "Supplier Agent", "HR Agent", "Training Agent", "Content Agent", "Meeting Agent", "Analytics Agent"],
+                "roles": [row_dict(r) for r in data["roles"]],
+                "tools": [row_dict(r) for r in data["tools"]],
+            })
         if path == "/api/agents/collaboration":
             return self.json_out({"ok": True, "summary": {"roles": len(data["roles"]), "tasks": len(data["tasks"]), "discussions": len(data["discussions"]), "tools": len(data["tools"])}})
         if path == "/api/agents/roles":

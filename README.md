@@ -17,6 +17,36 @@ FoxBrain supports long-running deployment on an Ubuntu Tencent Cloud server.
 
 After deployment, FoxBrain runs on the cloud server. Your personal computer can be turned off.
 
+## Enterprise Packs
+
+- Pack 01: foundation engineering standard, cloud operating rules, environment safety, testing and documentation baseline.
+- Pack 02: SAP B1 connector abstraction, CEO dashboard contract and shared AI agent registry.
+- Pack 03: enterprise knowledge platform framework for ingestion, governance, retrieval, citations and knowledge graph contracts.
+- Pack 04: unified multi-agent framework with role permissions, versioned tools, audit logs and approval gates.
+- Pack 05: unified dashboard framework with KPI service, alert service and evidence-based AI recommendations.
+
+The Pack 02, Pack 03, Pack 04 and Pack 05 implementation is additive. Existing login, mobile pages, cloud deployment, SAP sync status, knowledge pages, agent center pages and dashboard pages are preserved.
+
+## Enterprise Knowledge Platform APIs
+
+- `/api/knowledge/platform`
+- `/api/knowledge/ingestion/status`
+- `/api/knowledge/governance`
+- `/api/knowledge/retrieval-contract`
+- `/api/knowledge/graph-contract`
+- `/api/sap/sync/connector`
+- `/api/agents/registry`
+- `/api/agents/framework`
+- `/api/agents/tool-interface`
+- `/api/agents/approval-policy`
+- `/api/agents/audit-contract`
+- `/api/dashboard/service`
+- `/api/dashboard/kpis`
+- `/api/dashboard/alerts`
+- `/api/dashboard/recommendations`
+- `/api/dashboard/finance`
+- `/api/dashboard/store`
+
 ## Core Modules
 
 - AI 总经理

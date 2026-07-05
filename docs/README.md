@@ -64,6 +64,10 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [57_WORK_QUEUE_APPROVALS.md](57_WORK_QUEUE_APPROVALS.md)
 - [109_V6_AUTONOMOUS_CLOUD_EXECUTION.md](109_V6_AUTONOMOUS_CLOUD_EXECUTION.md)
 - [110_ENTERPRISE_PACK_01.md](110_ENTERPRISE_PACK_01.md)
+- [111_ENTERPRISE_PACK_02_SAP_AI.md](111_ENTERPRISE_PACK_02_SAP_AI.md)
+- [112_ENTERPRISE_PACK_03_KNOWLEDGE.md](112_ENTERPRISE_PACK_03_KNOWLEDGE.md)
+- [113_ENTERPRISE_PACK_04_AI_AGENTS.md](113_ENTERPRISE_PACK_04_AI_AGENTS.md)
+- [114_ENTERPRISE_PACK_05_DASHBOARD.md](114_ENTERPRISE_PACK_05_DASHBOARD.md)
 - [README_AUTO_UPDATE.md](README_AUTO_UPDATE.md)
 - [README_BACKUP_RESTORE.md](README_BACKUP_RESTORE.md)
 - [README_ENV.md](README_ENV.md)
@@ -93,6 +97,10 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [Task022 Operating System Layer](CODEX_TASKS/Task022_Operating_System_Layer.md)
 - [Task039 V6 Autonomous Cloud Execution](CODEX_TASKS/Task039_V6_Autonomous_Cloud_Execution.md)
 - [Task040 Enterprise Pack 01 Alignment](CODEX_TASKS/Task040_Enterprise_Pack_01_Alignment.md)
+- [Task041 Pack02 SAP AI Connector](CODEX_TASKS/Task041_Pack02_SAP_AI_Connector.md)
+- [Task042 Pack03 Knowledge Platform](CODEX_TASKS/Task042_Pack03_Knowledge_Platform.md)
+- [Task043 Pack04 AI Agent Framework](CODEX_TASKS/Task043_Pack04_AI_Agent_Framework.md)
+- [Task044 Pack05 Dashboard Framework](CODEX_TASKS/Task044_Pack05_Dashboard_Framework.md)
 
 Future tasks should use folders:
 
