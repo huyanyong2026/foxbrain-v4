@@ -51,6 +51,13 @@ def test_enterprise_pack_routes_present():
         "/api/dashboard/recommendations",
         "/api/dashboard/finance",
         "/api/dashboard/store",
+        "/api/automation/framework",
+        "/api/automation/scheduler",
+        "/api/automation/retry-policy",
+        "/api/automation/approval-policy",
+        "/api/automation/notifications",
+        "/api/automation/audit",
+        "/api/automation/workflow-library",
     ]:
         assert route in portal
 
@@ -82,6 +89,24 @@ def test_pack_dashboard_framework_present():
         assert phrase in portal
 
 
+def test_pack_automation_framework_present():
+    portal = read("portal_v2.py")
+    for field in ["risk_level", "approval_required", "approval_status", "retry_policy", "max_retries", "audit_status"]:
+        assert f'"automations", "{field}"' in portal
+    for field in ["attempt_no", "next_retry_at", "approval_id", "audit_event_id"]:
+        assert f'"automation_runs", "{field}"' in portal
+    for phrase in [
+        "automation_framework_payload",
+        "automation_scheduler_payload",
+        "automation_retry_policy_payload",
+        "automation_approval_policy_payload",
+        "automation_is_high_risk",
+        "high_risk_operations_are_never_auto_executed",
+        "every_automation_run_and_retry_must_be_audited",
+    ]:
+        assert phrase in portal
+
+
 def test_enterprise_pack_docs_present():
     for doc in [
         "docs/110_ENTERPRISE_PACK_01.md",
@@ -89,9 +114,11 @@ def test_enterprise_pack_docs_present():
         "docs/112_ENTERPRISE_PACK_03_KNOWLEDGE.md",
         "docs/113_ENTERPRISE_PACK_04_AI_AGENTS.md",
         "docs/114_ENTERPRISE_PACK_05_DASHBOARD.md",
+        "docs/115_ENTERPRISE_PACK_06_AUTOMATION.md",
         "docs/CODEX_TASKS/Task041_Pack02_SAP_AI_Connector.md",
         "docs/CODEX_TASKS/Task042_Pack03_Knowledge_Platform.md",
         "docs/CODEX_TASKS/Task043_Pack04_AI_Agent_Framework.md",
         "docs/CODEX_TASKS/Task044_Pack05_Dashboard_Framework.md",
+        "docs/CODEX_TASKS/Task045_Pack06_Automation_Framework.md",
     ]:
         assert (ROOT / doc).exists()

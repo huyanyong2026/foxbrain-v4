@@ -608,6 +608,14 @@ create table if not exists automations(
         )
         conn.execute("create index if not exists idx_automations_status on automations(status)")
         conn.execute("create index if not exists idx_automations_trigger on automations(trigger_type)")
+        ensure_column(conn, "automations", "risk_level", "risk_level text not null default 'low'")
+        ensure_column(conn, "automations", "approval_required", "approval_required integer not null default 0")
+        ensure_column(conn, "automations", "approval_status", "approval_status text not null default 'not_required'")
+        ensure_column(conn, "automations", "retry_policy", "retry_policy text not null default 'standard'")
+        ensure_column(conn, "automations", "max_retries", "max_retries integer not null default 3")
+        ensure_column(conn, "automations", "audit_status", "audit_status text not null default 'enabled'")
+        conn.execute("create index if not exists idx_automations_approval on automations(approval_required, approval_status)")
+        conn.execute("create index if not exists idx_automations_risk on automations(risk_level)")
         conn.execute(
             """
 create table if not exists automation_runs(
@@ -624,6 +632,11 @@ create table if not exists automation_runs(
 """
         )
         conn.execute("create index if not exists idx_automation_runs_status on automation_runs(status)")
+        ensure_column(conn, "automation_runs", "attempt_no", "attempt_no integer not null default 1")
+        ensure_column(conn, "automation_runs", "next_retry_at", "next_retry_at integer")
+        ensure_column(conn, "automation_runs", "approval_id", "approval_id text")
+        ensure_column(conn, "automation_runs", "audit_event_id", "audit_event_id text")
+        conn.execute("create index if not exists idx_automation_runs_retry on automation_runs(status, next_retry_at)")
         conn.execute(
             """
 create table if not exists notifications(
@@ -2337,6 +2350,13 @@ class App(BaseHTTPRequestHandler):
             (U(r"\u5e93\u5b58\u76d8\u70b9"), U(r"\u76d8\u70b9\u4efb\u52a1\u3001\u5dee\u5f02\u8bb0\u5f55\u548c AI \u5206\u6790\u3002"), "inventory_threshold", [U(r"\u751f\u6210\u76d8\u70b9"), U(r"\u95e8\u5e97\u6267\u884c"), U(r"\u5dee\u5f02\u590d\u6838"), U(r"\u8c03\u6574\u5efa\u8bae")]),
             (U(r"\u8425\u9500\u6d3b\u52a8"), U(r"\u4ece\u9009\u9898\u3001\u7d20\u6750\u3001\u5ba1\u6838\u5230\u53d1\u5e03\u8ddf\u8e2a\u3002"), "manual", [U(r"\u63d0\u4ea4\u65b9\u6848"), U(r"AI \u751f\u6210\u6587\u6848"), U(r"\u5ba1\u6838"), U(r"\u53d1\u5e03")]),
             (U(r"\u54c1\u724c\u4e0a\u65b0"), U(r"\u65b0\u54c1\u8d44\u6599\u3001\u57f9\u8bad\u3001\u5e93\u5b58\u548c\u8425\u9500\u4e0a\u67b6\u3002"), "manual", [U(r"\u54c1\u724c\u8d44\u6599"), U(r"\u57f9\u8bad"), U(r"\u4e0a\u67b6"), U(r"\u590d\u76d8")]),
+            (U(r"SAP \u591c\u95f4\u540c\u6b65"), U(r"\u6bcf\u65e5\u56fa\u5b9a\u65f6\u95f4\u540c\u6b65 SAP B1 \u6458\u8981\u6570\u636e\uff0c\u5931\u8d25\u540e\u8bb0\u5f55\u65e5\u5fd7\u5e76\u53ef\u91cd\u8bd5\u3002"), "scheduled", [U(r"\u83b7\u53d6\u9501"), U(r"\u8bfb\u53d6 SAP"), U(r"\u5199\u5165\u6458\u8981"), U(r"\u8bb0\u5f55\u5ba1\u8ba1")]),
+            (U(r"\u6bcf\u65e5\u7ecf\u8425\u65e5\u62a5"), U(r"\u57fa\u4e8e Dashboard \u6570\u636e\u670d\u52a1\u751f\u6210 CEO \u65e5\u62a5\u8349\u7a3f\u3002"), "scheduled", [U(r"\u8bfb\u53d6 KPI"), U(r"\u751f\u6210\u9884\u8b66"), U(r"\u751f\u6210 AI \u5efa\u8bae"), U(r"\u7b49\u5f85\u7ba1\u7406\u8005\u5ba1\u9605")]),
+            (U(r"\u77e5\u8bc6\u5e93\u7d22\u5f15"), U(r"\u5bf9\u5df2\u4e0a\u4f20\u548c\u5df2\u5ba1\u6838\u77e5\u8bc6\u8fdb\u884c\u5206\u5757\u3001\u7d22\u5f15\u548c\u68c0\u7d22\u51c6\u5907\u3002"), "scheduled", [U(r"\u626b\u63cf\u77e5\u8bc6"), U(r"\u8865\u5145\u5143\u6570\u636e"), U(r"\u751f\u6210\u5206\u5757"), U(r"\u66f4\u65b0\u7d22\u5f15")]),
+            (U(r"\u5ba1\u6279\u8def\u7531"), U(r"\u5c06\u4ef7\u683c\u3001\u5408\u540c\u3001\u8d22\u52a1\u3001\u5916\u90e8\u53d1\u5e03\u548c\u6279\u91cf\u6570\u636e\u53d8\u66f4\u9001\u5165\u4eba\u5de5\u5ba1\u6279\u3002"), "event", [U(r"\u68c0\u6d4b\u9ad8\u98ce\u9669"), U(r"\u751f\u6210\u5ba1\u6279\u5355"), U(r"\u901a\u77e5\u5ba1\u6279\u4eba"), U(r"\u5ba1\u6279\u540e\u6267\u884c")]),
+            (U(r"\u5e93\u5b58\u9884\u8b66"), U(r"\u68c0\u6d4b\u4f4e\u5e93\u5b58\u3001\u6ede\u9500\u548c\u5e93\u5b58\u91d1\u989d\u5f02\u5e38\u3002"), "inventory_threshold", [U(r"\u8bfb\u53d6\u5e93\u5b58"), U(r"\u751f\u6210\u9884\u8b66"), U(r"\u751f\u6210\u8865\u8d27\u6216\u8c03\u62e8\u5efa\u8bae"), U(r"\u4eba\u5de5\u5ba1\u6838")]),
+            (U(r"\u5ba2\u6237\u8ddf\u8fdb\u63d0\u9192"), U(r"\u68c0\u6d4b\u9ad8\u4ef7\u503c\u6c89\u9ed8\u4f1a\u5458\u5e76\u63d0\u9192\u95e8\u5e97\u8ddf\u8fdb\u3002"), "scheduled", [U(r"\u8bfb\u53d6\u4f1a\u5458"), U(r"\u8bc6\u522b\u6c89\u9ed8"), U(r"\u751f\u6210\u8ddf\u8fdb\u4efb\u52a1"), U(r"\u901a\u77e5\u95e8\u5e97")]),
+            (U(r"\u5408\u540c\u5230\u671f\u63d0\u9192"), U(r"\u5bf9\u4f9b\u5e94\u5546\u5408\u540c\u548c\u623f\u79df\u7b49\u91cd\u8981\u5408\u540c\u63d0\u524d\u9884\u8b66\u3002"), "scheduled", [U(r"\u626b\u63cf\u5408\u540c"), U(r"\u8ba1\u7b97\u5230\u671f"), U(r"\u751f\u6210\u9884\u8b66"), U(r"\u8def\u7531\u5ba1\u6279")]),
         ]
         now = ts()
         for name, desc, trigger, steps in templates:
@@ -2368,6 +2388,105 @@ class App(BaseHTTPRequestHandler):
         actions = ["generate_summary", "create_task", "notify_manager", "generate_report", "suggest_purchasing", "suggest_markdown", "suggest_transfer", "create_meeting_note"]
         channels = ["in_app", "email", "enterprise_wechat_placeholder", "sms_placeholder"]
         return {"running": running, "pending": pending, "failed": failed, "templates": templates, "automations": automations, "runs": runs, "notifications": notifications, "daily_jobs": daily_jobs, "triggers": triggers, "actions": actions, "channels": channels}
+
+    def automation_is_high_risk(self, action_type, name="", description=""):
+        text = " ".join([str(action_type or ""), str(name or ""), str(description or "")]).lower()
+        high_risk_terms = [
+            "price", "pricing", "discount", "contract", "finance", "payment", "payable",
+            "sap_write", "external_publish", "publish", "bulk", "batch", "delete",
+            U(r"\u4ef7\u683c"), U(r"\u6298\u6263"), U(r"\u5408\u540c"), U(r"\u8d22\u52a1"), U(r"\u4ed8\u6b3e"), U(r"\u5916\u90e8\u53d1\u5e03"), U(r"\u6279\u91cf"),
+        ]
+        return any(term.lower() in text for term in high_risk_terms)
+
+    def automation_framework_payload(self, user):
+        data = self.automation_summary()
+        return {
+            "ok": True,
+            "platform": "enterprise_automation_framework",
+            "pack_alignment": ["Pack01 foundation", "Pack02 SAP AI", "Pack03 knowledge", "Pack04 agents", "Pack05 dashboard", "Pack06 automation"],
+            "objectives": ["eliminate_repetitive_work", "standardize_approval_workflows", "scheduled_and_event_driven_automation", "human_approval_for_high_risk_actions"],
+            "scheduler": self.automation_scheduler_payload()["scheduler"],
+            "retry_policy": self.automation_retry_policy_payload()["retry_policy"],
+            "approval_policy": self.automation_approval_policy_payload()["approval_policy"],
+            "notification_center": self.automation_notification_payload(user)["notification_center"],
+            "audit": self.automation_audit_payload()["audit"],
+            "workflow_library": self.automation_workflow_library_payload(user)["workflow_library"],
+            "summary": {"running": data["running"], "pending": data["pending"], "failed": data["failed"]},
+        }
+
+    def automation_scheduler_payload(self):
+        return {
+            "ok": True,
+            "scheduler": {
+                "supports": ["cron_schedules", "event_triggers", "retry_policy", "failure_notifications", "audit_history"],
+                "cron_jobs": {
+                    "sap_nightly_sync": os.environ.get("SAP_SYNC_TIME", "22:00"),
+                    "knowledge_indexing": os.environ.get("KNOWLEDGE_INDEX_TIME", "02:00"),
+                    "daily_business_report": os.environ.get("DAILY_REPORT_TIME", "08:00"),
+                    "backup": os.environ.get("BACKUP_TIME", "03:00"),
+                },
+                "event_triggers": ["sap_data_change", "document_uploaded", "knowledge_approved", "inventory_threshold", "sales_threshold", "approval_decided"],
+                "execution_rule": "scheduled_jobs_create_logs_and_never_bypass_approval",
+            },
+        }
+
+    def automation_retry_policy_payload(self):
+        return {
+            "ok": True,
+            "retry_policy": {
+                "default_max_retries": 3,
+                "backoff": "linear_5m_15m_30m",
+                "retryable_statuses": ["failed", "timeout", "temporary_error"],
+                "non_retryable_statuses": ["blocked_by_approval", "permission_denied", "validation_failed"],
+                "failure_notification": True,
+                "audit_each_attempt": True,
+            },
+        }
+
+    def automation_approval_policy_payload(self):
+        return {
+            "ok": True,
+            "approval_policy": {
+                "required_for": ["price_changes", "financial_operations", "contract_execution", "external_publishing", "bulk_data_changes", "sap_write_back"],
+                "default_for_high_risk": "pending_approval",
+                "execution_rule": "high_risk_operations_are_never_auto_executed",
+                "review_roles": ["boss", "admin", "finance"],
+                "linked_agent_policy": "/api/agents/approval-policy",
+            },
+        }
+
+    def automation_notification_payload(self, user):
+        data = self.automation_summary()
+        return {
+            "ok": True,
+            "notification_center": {
+                "channels": ["in_app", "email", "enterprise_messaging_future", "mobile_push_future"],
+                "failure_notifications": True,
+                "approval_notifications": True,
+                "notifications": [row_dict(r) for r in data["notifications"]],
+            },
+        }
+
+    def automation_audit_payload(self):
+        return {
+            "ok": True,
+            "audit": {
+                "log_tables": ["automation_runs", "activity_log"],
+                "events": ["automation_created", "automation_scheduled", "automation_started", "automation_failed", "automation_retried", "approval_requested", "approval_decided", "automation_completed"],
+                "required_fields": ["automation_id", "run_id", "user_id", "status", "attempt_no", "message", "timestamp"],
+                "rule": "every_automation_run_and_retry_must_be_audited",
+            },
+        }
+
+    def automation_workflow_library_payload(self, user):
+        data = self.automation_summary()
+        return {
+            "ok": True,
+            "workflow_library": {
+                "initial_workflows": ["SAP nightly sync", "Daily business report", "Knowledge indexing", "Approval routing", "Inventory alert", "Customer follow-up reminder", "Contract expiry reminder"],
+                "templates": [row_dict(r) for r in data["templates"]],
+            },
+        }
 
     def login(self, msg=""):
         body = f"""
@@ -5559,6 +5678,11 @@ class App(BaseHTTPRequestHandler):
         checks["dashboard_data_service_status"] = "unified"
         checks["dashboard_alert_component_status"] = "decoupled"
         checks["dashboard_recommendation_component_status"] = "evidence_required"
+        checks["enterprise_pack_06_automation_status"] = "framework_ready"
+        checks["automation_scheduler_status"] = "contract_ready"
+        checks["automation_retry_policy_status"] = "enabled"
+        checks["automation_approval_policy_status"] = "high_risk_defaults_to_approval"
+        checks["automation_audit_status"] = "enabled"
         checks["v6_autonomous_worker_status"] = "scheduled" if os.environ.get("APP_ENV", "production") else "local"
         checks["worker_jobs"] = {
             "sap_sync": os.environ.get("SAP_SYNC_TIME", "22:00"),
@@ -5719,12 +5843,21 @@ class App(BaseHTTPRequestHandler):
         if not name:
             return self.redir("/automation")
         now = ts()
+        action_type = form.get("action_type", "create_task")
+        description = form.get("description", "")
+        is_high_risk = self.automation_is_high_risk(action_type, name, description)
+        risk_level = "high" if is_high_risk else "low"
+        approval_required = 1 if is_high_risk else 0
+        approval_status = "pending" if is_high_risk else "not_required"
+        status = "pending_approval" if is_high_risk else "active"
         with db() as conn:
             cur = conn.execute(
-                "insert into automations(automation_id,name,description,trigger_type,action_type,status,owner,ai_recommendation,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?)",
-                ("AUTO-" + uuid.uuid4().hex[:10], name, form.get("description", ""), form.get("trigger_type", "manual"), form.get("action_type", "create_task"), "active", form.get("owner", user["name"]), U(r"\u7b49\u5f85 AI \u63a5\u5165\u540e\u6839\u636e\u6267\u884c\u5386\u53f2\u4f18\u5316\u6d41\u7a0b\u3002"), user["id"], now, now),
+                "insert into automations(automation_id,name,description,trigger_type,action_type,status,owner,ai_recommendation,created_by,created_at,updated_at,risk_level,approval_required,approval_status,retry_policy,max_retries,audit_status) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("AUTO-" + uuid.uuid4().hex[:10], name, description, form.get("trigger_type", "manual"), action_type, status, form.get("owner", user["name"]), U(r"\u7b49\u5f85 AI \u63a5\u5165\u540e\u6839\u636e\u6267\u884c\u5386\u53f2\u4f18\u5316\u6d41\u7a0b\u3002"), user["id"], now, now, risk_level, approval_required, approval_status, "standard", 3, "enabled"),
             )
-            conn.execute("insert into automation_runs(run_id,automation_id,status,message,created_at) values(?,?,?,?,?)", ("RUN-" + uuid.uuid4().hex[:10], cur.lastrowid, "pending", U(r"\u81ea\u52a8\u5316\u5df2\u521b\u5efa\uff0c\u7b49\u5f85\u89e6\u53d1\u5668\u6267\u884c\u3002"), now))
+            run_status = "blocked_by_approval" if is_high_risk else "pending"
+            run_message = U(r"\u9ad8\u98ce\u9669\u81ea\u52a8\u5316\u5df2\u8fdb\u5165\u4eba\u5de5\u5ba1\u6279\uff0c\u5ba1\u6279\u524d\u4e0d\u6267\u884c\u3002") if is_high_risk else U(r"\u81ea\u52a8\u5316\u5df2\u521b\u5efa\uff0c\u7b49\u5f85\u89e6\u53d1\u5668\u6267\u884c\u3002")
+            conn.execute("insert into automation_runs(run_id,automation_id,status,message,created_at,attempt_no,audit_event_id,approval_id) values(?,?,?,?,?,?,?,?)", ("RUN-" + uuid.uuid4().hex[:10], cur.lastrowid, run_status, run_message, now, 1, "activity_log", "pending" if is_high_risk else ""))
         self.log_action(user, "automation_create", "automation", cur.lastrowid, name)
         return self.redir("/automation")
 
@@ -5749,6 +5882,20 @@ class App(BaseHTTPRequestHandler):
         if not self.role_can_manage(user):
             return self.json_out({"ok": False, "message": "no permission"}, code=403)
         data = self.automation_summary()
+        if path == "/api/automation/framework":
+            return self.json_out(self.automation_framework_payload(user))
+        if path == "/api/automation/scheduler":
+            return self.json_out(self.automation_scheduler_payload())
+        if path == "/api/automation/retry-policy":
+            return self.json_out(self.automation_retry_policy_payload())
+        if path == "/api/automation/approval-policy":
+            return self.json_out(self.automation_approval_policy_payload())
+        if path == "/api/automation/notifications":
+            return self.json_out(self.automation_notification_payload(user))
+        if path == "/api/automation/audit":
+            return self.json_out(self.automation_audit_payload())
+        if path == "/api/automation/workflow-library":
+            return self.json_out(self.automation_workflow_library_payload(user))
         if path == "/api/automation":
             return self.json_out({"ok": True, "dashboard": {"running": data["running"], "pending": data["pending"], "failed": data["failed"], "daily_jobs": data["daily_jobs"], "triggers": data["triggers"], "actions": data["actions"]}, "automations": [row_dict(r) for r in data["automations"]]})
         if path == "/api/workflows":
@@ -5765,11 +5912,21 @@ class App(BaseHTTPRequestHandler):
         form = self.form()
         now = ts()
         if path == "/api/automation":
+            name = form.get("name", U(r"\u672a\u547d\u540d\u81ea\u52a8\u5316"))
+            description = form.get("description", "")
+            action_type = form.get("action_type", "create_task")
+            is_high_risk = self.automation_is_high_risk(action_type, name, description)
+            risk_level = "high" if is_high_risk else "low"
+            approval_required = 1 if is_high_risk else 0
+            approval_status = "pending" if is_high_risk else "not_required"
+            status = "pending_approval" if is_high_risk else form.get("status", "draft")
             with db() as conn:
                 cur = conn.execute(
-                    "insert into automations(automation_id,name,description,trigger_type,action_type,status,owner,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?)",
-                    ("AUTO-" + uuid.uuid4().hex[:10], form.get("name", U(r"\u672a\u547d\u540d\u81ea\u52a8\u5316")), form.get("description", ""), form.get("trigger_type", "manual"), form.get("action_type", "create_task"), form.get("status", "draft"), form.get("owner", user["name"]), user["id"], now, now),
+                    "insert into automations(automation_id,name,description,trigger_type,action_type,status,owner,created_by,created_at,updated_at,risk_level,approval_required,approval_status,retry_policy,max_retries,audit_status) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("AUTO-" + uuid.uuid4().hex[:10], name, description, form.get("trigger_type", "manual"), action_type, status, form.get("owner", user["name"]), user["id"], now, now, risk_level, approval_required, approval_status, form.get("retry_policy", "standard"), int(form.get("max_retries", "3") or 3), "enabled"),
                 )
+                conn.execute("insert into automation_runs(run_id,automation_id,status,message,created_at,attempt_no,audit_event_id,approval_id) values(?,?,?,?,?,?,?,?)", ("RUN-" + uuid.uuid4().hex[:10], cur.lastrowid, "blocked_by_approval" if is_high_risk else "pending", U(r"\u9ad8\u98ce\u9669\u81ea\u52a8\u5316\u5ba1\u6279\u524d\u4e0d\u6267\u884c\u3002") if is_high_risk else U(r"\u81ea\u52a8\u5316\u5df2\u521b\u5efa\uff0c\u7b49\u5f85\u89e6\u53d1\u3002"), now, 1, "activity_log", "pending" if is_high_risk else ""))
+            self.log_action(user, "automation_api_create", "automation", cur.lastrowid, name)
             return self.json_out({"ok": True, "automation_id": cur.lastrowid})
         if path == "/api/workflows":
             with db() as conn:

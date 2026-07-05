@@ -68,6 +68,7 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [112_ENTERPRISE_PACK_03_KNOWLEDGE.md](112_ENTERPRISE_PACK_03_KNOWLEDGE.md)
 - [113_ENTERPRISE_PACK_04_AI_AGENTS.md](113_ENTERPRISE_PACK_04_AI_AGENTS.md)
 - [114_ENTERPRISE_PACK_05_DASHBOARD.md](114_ENTERPRISE_PACK_05_DASHBOARD.md)
+- [115_ENTERPRISE_PACK_06_AUTOMATION.md](115_ENTERPRISE_PACK_06_AUTOMATION.md)
 - [README_AUTO_UPDATE.md](README_AUTO_UPDATE.md)
 - [README_BACKUP_RESTORE.md](README_BACKUP_RESTORE.md)
 - [README_ENV.md](README_ENV.md)
@@ -101,6 +102,7 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [Task042 Pack03 Knowledge Platform](CODEX_TASKS/Task042_Pack03_Knowledge_Platform.md)
 - [Task043 Pack04 AI Agent Framework](CODEX_TASKS/Task043_Pack04_AI_Agent_Framework.md)
 - [Task044 Pack05 Dashboard Framework](CODEX_TASKS/Task044_Pack05_Dashboard_Framework.md)
+- [Task045 Pack06 Automation Framework](CODEX_TASKS/Task045_Pack06_Automation_Framework.md)
 
 Future tasks should use folders:
 

@@ -24,8 +24,9 @@ After deployment, FoxBrain runs on the cloud server. Your personal computer can 
 - Pack 03: enterprise knowledge platform framework for ingestion, governance, retrieval, citations and knowledge graph contracts.
 - Pack 04: unified multi-agent framework with role permissions, versioned tools, audit logs and approval gates.
 - Pack 05: unified dashboard framework with KPI service, alert service and evidence-based AI recommendations.
+- Pack 06: unified automation framework with scheduling, retry policy, notifications, audit logs and approval gates.
 
-The Pack 02, Pack 03, Pack 04 and Pack 05 implementation is additive. Existing login, mobile pages, cloud deployment, SAP sync status, knowledge pages, agent center pages and dashboard pages are preserved.
+The Pack 02, Pack 03, Pack 04, Pack 05 and Pack 06 implementation is additive. Existing login, mobile pages, cloud deployment, SAP sync status, knowledge pages, agent center pages, dashboard pages and automation pages are preserved.
 
 ## Enterprise Knowledge Platform APIs
 
@@ -46,6 +47,11 @@ The Pack 02, Pack 03, Pack 04 and Pack 05 implementation is additive. Existing l
 - `/api/dashboard/recommendations`
 - `/api/dashboard/finance`
 - `/api/dashboard/store`
+- `/api/automation/framework`
+- `/api/automation/scheduler`
+- `/api/automation/retry-policy`
+- `/api/automation/approval-policy`
+- `/api/automation/audit`
 
 ## Core Modules
 
