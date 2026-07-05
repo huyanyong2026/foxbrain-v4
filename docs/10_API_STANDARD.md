@@ -281,6 +281,24 @@ Finance APIs must not invent financial data. Calculators return scenario estimat
 
 HR APIs must not invent salary or performance facts. AI evaluation is advisory and requires human review.
 
+## Task019 Customer Membership Private Domain API
+
+- `GET /api/customer-growth`
+- `GET /api/customer-growth/segments`
+- `POST /api/customer-growth/segments`
+- `GET /api/customer-growth/tags`
+- `POST /api/customer-growth/tags`
+- `GET /api/customer-growth/groups`
+- `POST /api/customer-growth/groups`
+- `GET /api/customer-growth/followups`
+- `POST /api/customer-growth/followups`
+- `GET /api/customer-growth/events`
+- `POST /api/customer-growth/events`
+- `GET /api/customer-growth/value-analysis`
+- `POST /api/customer-growth/create-task`
+
+Customer APIs must protect private data and must not invent customer profiles or purchase history.
+
 ## Future API
 
 - `POST /api/files/parse`

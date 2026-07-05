@@ -246,6 +246,20 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - HR task generation endpoint
 - Health check now reports HR Performance Engine status
 
+## V4 Task019 Completed
+
+- Customer Membership and Private Domain Growth Engine
+- Customer growth center route
+- Customer segment model
+- Customer tag model
+- Private domain group model
+- Customer follow-up model
+- Customer event invitation model
+- Customer value analysis placeholder
+- Enterprise WeChat private-domain placeholder
+- Customer growth task generation endpoint
+- Health check now reports Customer Growth Engine status
+
 ## V4 Routes
 
 - `/`
@@ -262,6 +276,7 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - `/finance/store-profit`
 - `/finance/brand-profit`
 - `/hr`
+- `/customer-growth`
 - `/content`
 - `/business-overview`
 - `/stores`
@@ -433,6 +448,19 @@ Production should use Nginx or Caddy as an HTTPS reverse proxy.
 - `POST /api/hr/candidates`
 - `GET /api/hr/ai-evaluation`
 - `POST /api/hr/create-task`
+- `GET /api/customer-growth`
+- `GET /api/customer-growth/segments`
+- `POST /api/customer-growth/segments`
+- `GET /api/customer-growth/tags`
+- `POST /api/customer-growth/tags`
+- `GET /api/customer-growth/groups`
+- `POST /api/customer-growth/groups`
+- `GET /api/customer-growth/followups`
+- `POST /api/customer-growth/followups`
+- `GET /api/customer-growth/events`
+- `POST /api/customer-growth/events`
+- `GET /api/customer-growth/value-analysis`
+- `POST /api/customer-growth/create-task`
 
 ## Security
 

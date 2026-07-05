@@ -142,3 +142,16 @@ Brand strategies can provide content topics:
 - Member communication draft
 
 No brand claim, product spec or promotion detail may be invented.
+
+## Task019 Customer Growth Integration
+
+Customer events and private-domain groups can provide content topics:
+
+- Event invitation copy
+- Member day notice
+- Equipment class message
+- Product experience invitation
+- Dormant customer reactivation draft
+- Store group notice
+
+Public or private customer messages require human review before use.

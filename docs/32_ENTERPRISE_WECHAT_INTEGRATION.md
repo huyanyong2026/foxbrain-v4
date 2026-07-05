@@ -21,6 +21,17 @@ Task013 prepares the framework but does not hardcode or require credentials.
 - Group message drafts
 - Customer group content handoff
 
+## Task019 Private Domain Placeholder
+
+Customer Growth Engine reserves Enterprise WeChat private-domain capabilities:
+
+- Customer group sync placeholder
+- Employee follow-up placeholder
+- Group content draft placeholder
+- Group task notification placeholder
+
+No message is sent automatically. Credentials must stay in environment variables.
+
 ## Security Rules
 
 - Do not commit `corp_id`, `agent_secret`, access tokens or webhook secrets.

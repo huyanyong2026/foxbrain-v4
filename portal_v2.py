@@ -1584,6 +1584,92 @@ create table if not exists hr_candidates(
 """
         )
         conn.execute("create index if not exists idx_hr_candidates_status on hr_candidates(interview_status)")
+        conn.execute(
+            """
+create table if not exists customer_segments(
+ id integer primary key autoincrement,
+ segment_id text unique,
+ segment_name text not null,
+ description text,
+ rules text,
+ customer_count integer not null default 0,
+ priority text,
+ status text not null default 'draft',
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_customer_segments_status on customer_segments(status, priority)")
+        conn.execute(
+            """
+create table if not exists customer_tags(
+ id integer primary key autoincrement,
+ tag_id text unique,
+ tag_name text not null,
+ tag_type text,
+ description text,
+ status text not null default 'active',
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_customer_tags_name on customer_tags(tag_name, status)")
+        conn.execute(
+            """
+create table if not exists private_domain_groups(
+ id integer primary key autoincrement,
+ group_id text unique,
+ group_name text not null,
+ platform text,
+ store_id text,
+ owner_employee_id text,
+ customer_count integer not null default 0,
+ group_type text,
+ topic text,
+ status text not null default 'draft',
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_private_groups_store on private_domain_groups(store_id, status)")
+        conn.execute(
+            """
+create table if not exists customer_followups(
+ id integer primary key autoincrement,
+ followup_id text unique,
+ customer_id text,
+ employee_id text,
+ store_id text,
+ followup_type text,
+ content text,
+ next_action text,
+ due_date text,
+ status text not null default 'todo',
+ created_at integer not null,
+ updated_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_customer_followups_status on customer_followups(status, due_date)")
+        conn.execute(
+            """
+create table if not exists customer_events(
+ id integer primary key autoincrement,
+ event_id text unique,
+ title text not null,
+ store_id text,
+ target_segments text,
+ target_tags text,
+ invitation_message text,
+ status text not null default 'draft',
+ created_at integer not null
+)
+"""
+        )
+        conn.execute("create index if not exists idx_customer_events_status on customer_events(status)")
         admin_email = os.environ.get("PORTAL_ADMIN_EMAIL", "vafox@126.com").strip().lower()
         existing_admin = conn.execute("select id from users where role='admin' limit 1").fetchone()
         if not existing_admin:
@@ -1738,6 +1824,8 @@ class App(BaseHTTPRequestHandler):
             return self.finance_brand_profit(user)
         if path == "/hr":
             return self.hr_center(user)
+        if path == "/customer-growth":
+            return self.customer_growth_center(user)
         if path == "/stores/operations":
             return self.store_operations(user)
         if path == "/store-growth":
@@ -1812,6 +1900,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_finance_get(user, path)
         if path.startswith("/api/hr"):
             return self.api_hr_get(user, path)
+        if path.startswith("/api/customer-growth"):
+            return self.api_customer_growth_get(user, path)
         if path.startswith("/api/ai-ceo") or path.startswith("/api/business") or path.startswith("/api/stores") or path.startswith("/api/brands") or path.startswith("/api/inventory") or path.startswith("/api/tasks"):
             return self.api_task005_get(user, path)
         if path.startswith("/api/automation") or path.startswith("/api/workflows") or path.startswith("/api/notifications"):
@@ -1906,6 +1996,16 @@ class App(BaseHTTPRequestHandler):
             return self.hr_growth_save()
         if path == "/hr/candidates/save":
             return self.hr_candidate_save()
+        if path == "/customer-growth/segments/save":
+            return self.customer_segment_save()
+        if path == "/customer-growth/tags/save":
+            return self.customer_tag_save()
+        if path == "/customer-growth/groups/save":
+            return self.private_group_save()
+        if path == "/customer-growth/followups/save":
+            return self.customer_followup_save()
+        if path == "/customer-growth/events/save":
+            return self.customer_event_save()
         if path == "/automation/save":
             return self.automation_save()
         if path == "/workflows/save":
@@ -1924,6 +2024,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_finance_post(self.current_user(), path)
         if path.startswith("/api/hr"):
             return self.api_hr_post(self.current_user(), path)
+        if path.startswith("/api/customer-growth"):
+            return self.api_customer_growth_post(self.current_user(), path)
         if path.startswith("/api/ai-ceo") or path.startswith("/api/business") or path.startswith("/api/stores") or path.startswith("/api/brands") or path.startswith("/api/inventory") or path.startswith("/api/tasks"):
             return self.api_task005_post(self.current_user(), path)
         if path.startswith("/api/automation") or path.startswith("/api/workflows") or path.startswith("/api/notifications"):
@@ -4047,6 +4149,132 @@ class App(BaseHTTPRequestHandler):
             return self.json_out({"ok": True, "message": U(r"\u6fc0\u52b1\u65b9\u6848\u66f4\u65b0 API \u5df2\u9884\u7559\uff0cV1 \u8bf7\u901a\u8fc7\u65b0\u5efa\u65b9\u6848\u4fdd\u7559\u7248\u672c\u3002")})
         return self.json_out({"ok": False, "message": "unknown hr update api"}, code=404)
 
+    def can_view_customer_growth(self, user):
+        return bool(user and user["role"] in ("boss", "admin", "store_manager", "employee"))
+
+    def can_manage_customer_growth(self, user):
+        return bool(user and user["role"] in ("boss", "admin", "store_manager"))
+
+    def customer_growth_empty(self):
+        return U(r"\u7b49\u5f85 SAP B1 / \u4f1a\u5458 / \u4f01\u4e1a\u5fae\u4fe1\u6570\u636e\u63a5\u5165\uff0c\u4e0d\u7f16\u9020\u771f\u5b9e\u987e\u5ba2\u8d44\u6599\u3002")
+
+    def customer_growth_payload(self):
+        with db() as conn:
+            segments = [row_dict(r) for r in conn.execute("select * from customer_segments order by updated_at desc limit 30").fetchall()]
+            tags = [row_dict(r) for r in conn.execute("select * from customer_tags order by updated_at desc limit 50").fetchall()]
+            groups = [row_dict(r) for r in conn.execute("select * from private_domain_groups order by updated_at desc limit 30").fetchall()]
+            followups = [row_dict(r) for r in conn.execute("select * from customer_followups order by updated_at desc limit 30").fetchall()]
+            events = [row_dict(r) for r in conn.execute("select * from customer_events order by created_at desc limit 30").fetchall()]
+        return {"ok": True, "empty_message": self.customer_growth_empty(), "segments": segments, "tags": tags, "groups": groups, "followups": followups, "events": events}
+
+    def customer_growth_center(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        if not self.can_view_customer_growth(user):
+            return self.dashboard(user)
+        data = self.customer_growth_payload()
+        metrics = "".join([
+            self.metric(U(r"\u4f1a\u5458\u5206\u5c42"), money(len(data["segments"])), U(r"\u53ef\u81ea\u5b9a\u4e49\u89c4\u5219")),
+            self.metric(U(r"\u987e\u5ba2\u6807\u7b7e"), money(len(data["tags"])), U(r"\u5174\u8da3/\u54c1\u724c/\u590d\u8d2d")),
+            self.metric(U(r"\u79c1\u57df\u7fa4"), money(len(data["groups"])), U(r"\u4f01\u5fae\u9884\u7559")),
+            self.metric(U(r"\u5f85\u8ddf\u8fdb"), money(len(data["followups"])), U(r"\u53ef\u8f6c\u4efb\u52a1")),
+        ])
+        segment_items = [r["segment_name"] + " · " + r["priority"] + " · " + r["status"] for r in data["segments"]] or [self.customer_growth_empty()]
+        group_items = [r["group_name"] + " · " + (r["platform"] or "") + " · " + r["status"] for r in data["groups"]] or [U(r"\u6682\u65e0\u79c1\u57df\u7fa4\u3002")]
+        follow_items = [r["customer_id"] + " · " + (r["followup_type"] or "") + " · " + r["status"] for r in data["followups"]] or [U(r"\u6682\u65e0\u987e\u5ba2\u8ddf\u8fdb\u3002")]
+        body = f"""
+<div class="panel"><h2>{U(r'\u987e\u5ba2\u4f1a\u5458\u4e0e\u79c1\u57df\u589e\u957f\u4e2d\u5fc3')}</h2><p class="small">{U(r'\u7ba1\u7406\u4f1a\u5458\u5206\u5c42\u3001\u987e\u5ba2\u6807\u7b7e\u3001\u79c1\u57df\u7fa4\u3001\u8ddf\u8fdb\u4efb\u52a1\u548c\u6d3b\u52a8\u9080\u7ea6\u3002\u987e\u5ba2\u9690\u79c1\u4f18\u5148\u3002')}</p><div class="metrics">{metrics}</div></div>
+<div class="grid">
+  {self.card(U(r'\u4f1a\u5458\u5206\u5c42'), U(r'\u65b0\u5ba2\u3001\u8001\u5ba2\u3001VIP\u3001\u9ad8\u4ef7\u503c\u3001\u6c89\u7761\u3001\u5174\u8da3\u7fa4\u4f53\u3002'), '#segment-form', 'btn', True)}
+  {self.card(U(r'\u79c1\u57df\u7fa4'), U(r'\u95e8\u5e97\u7fa4\u3001\u54c1\u724c\u7fa4\u3001\u5f92\u6b65\u7fa4\u3001\u9732\u8425\u7fa4\u3001VIP \u7fa4\u3002'), '#group-form', 'btn green', True)}
+  {self.card(U(r'\u6d3b\u52a8\u9080\u7ea6'), U(r'\u5f92\u6b65\u6d3b\u52a8\u3001\u88c5\u5907\u8bfe\u5802\u3001\u65b0\u54c1\u4f53\u9a8c\u548c\u4f1a\u5458\u65e5\u3002'), '#event-form', 'btn orange', True)}
+</div>
+<div class="split"><div class="panel"><h2>{U(r'\u4f1a\u5458\u5206\u5c42')}</h2>{self.bullets(segment_items)}</div><div class="panel"><h2>{U(r'\u79c1\u57df\u7fa4')}</h2>{self.bullets(group_items)}</div></div>
+<div class="split"><div class="panel"><h2>{U(r'\u987e\u5ba2\u8ddf\u8fdb')}</h2>{self.bullets(follow_items)}</div><div class="panel"><h2>{U(r'AI \u987e\u5ba2\u5efa\u8bae')}</h2>{self.empty_state(U(r'\u9884\u7559\uff1a\u8ddf\u8fdb\u5ba2\u6237\u3001\u6d3b\u52a8\u9080\u8bf7\u3001\u5185\u5bb9\u63a8\u8350\u3001\u4ea7\u54c1\u63a8\u8350\u548c\u6c89\u7761\u6fc0\u6d3b\u3002'))}</div></div>
+<div class="split">
+  <div id="segment-form" class="panel form"><h2>{U(r'\u65b0\u5efa\u5206\u5c42')}</h2><form method="post" action="/customer-growth/segments/save"><label>{U(r'\u5206\u5c42\u540d\u79f0')}</label><input name="segment_name"><label>{U(r'\u89c4\u5219')}</label><textarea name="rules"></textarea><label>{U(r'\u4f18\u5148\u7ea7')}</label><input name="priority"><p><button>{U(r'\u4fdd\u5b58\u5206\u5c42')}</button></p></form></div>
+  <div class="panel form"><h2>{U(r'\u65b0\u5efa\u6807\u7b7e')}</h2><form method="post" action="/customer-growth/tags/save"><label>{U(r'\u6807\u7b7e\u540d')}</label><input name="tag_name"><label>{U(r'\u7c7b\u578b')}</label><input name="tag_type" placeholder="interest / brand / value"><p><button>{U(r'\u4fdd\u5b58\u6807\u7b7e')}</button></p></form></div>
+</div>
+<div class="split">
+  <div id="group-form" class="panel form"><h2>{U(r'\u65b0\u5efa\u79c1\u57df\u7fa4')}</h2><form method="post" action="/customer-growth/groups/save"><label>{U(r'\u7fa4\u540d')}</label><input name="group_name"><label>{U(r'\u5e73\u53f0')}</label><input name="platform" placeholder="enterprise_wechat_placeholder"><label>{T['store']}</label><input name="store_id"><label>{U(r'\u4e3b\u9898')}</label><input name="topic"><p><button>{U(r'\u4fdd\u5b58\u7fa4')}</button></p></form></div>
+  <div class="panel form"><h2>{U(r'\u65b0\u5efa\u8ddf\u8fdb')}</h2><form method="post" action="/customer-growth/followups/save"><label>{U(r'\u987e\u5ba2 ID')}</label><input name="customer_id"><label>{U(r'\u8ddf\u8fdb\u7c7b\u578b')}</label><input name="followup_type"><label>{U(r'\u4e0b\u4e00\u6b65')}</label><textarea name="next_action"></textarea><label>{U(r'\u622a\u6b62\u65e5\u671f')}</label><input name="due_date"><p><button>{U(r'\u4fdd\u5b58\u8ddf\u8fdb')}</button></p></form></div>
+</div>
+<div id="event-form" class="panel form"><h2>{U(r'\u6d3b\u52a8\u9080\u7ea6')}</h2><form method="post" action="/customer-growth/events/save"><label>{U(r'\u6d3b\u52a8\u6807\u9898')}</label><input name="title"><label>{T['store']}</label><input name="store_id"><label>{U(r'\u76ee\u6807\u5206\u5c42')}</label><input name="target_segments"><label>{U(r'\u9080\u7ea6\u6587\u6848')}</label><textarea name="invitation_message"></textarea><p><button>{U(r'\u4fdd\u5b58\u6d3b\u52a8')}</button></p></form></div>"""
+        self.out(layout(U(r"\u987e\u5ba2\u79c1\u57df\u589e\u957f"), body, user=user, wide=True))
+
+    def customer_insert(self, table, cols, defaults, action, target_type):
+        user = self.current_user()
+        if not user:
+            return self.redir("/login")
+        if not self.can_manage_customer_growth(user):
+            return self.redir("/")
+        form = self.form()
+        vals = [defaults.get(c, form.get(c, "")) for c in cols]
+        with db() as conn:
+            cur = conn.execute(f"insert into {table}({','.join(cols)}) values({','.join('?' for _ in cols)})", vals)
+        self.log_action(user, action, target_type, cur.lastrowid, "")
+        return self.redir("/customer-growth")
+
+    def customer_segment_save(self):
+        now = ts()
+        return self.customer_insert("customer_segments", ["segment_id","segment_name","description","rules","customer_count","priority","status","created_at","updated_at"], {"segment_id":"CS-"+uuid.uuid4().hex[:10],"customer_count":0,"status":"draft","created_at":now,"updated_at":now}, "customer_segment_created", "customer_segment")
+
+    def customer_tag_save(self):
+        now = ts()
+        return self.customer_insert("customer_tags", ["tag_id","tag_name","tag_type","description","status","created_at","updated_at"], {"tag_id":"CT-"+uuid.uuid4().hex[:10],"status":"active","created_at":now,"updated_at":now}, "customer_tag_created", "customer_tag")
+
+    def private_group_save(self):
+        now = ts()
+        return self.customer_insert("private_domain_groups", ["group_id","group_name","platform","store_id","owner_employee_id","customer_count","group_type","topic","status","created_at","updated_at"], {"group_id":"PG-"+uuid.uuid4().hex[:10],"customer_count":0,"status":"draft","created_at":now,"updated_at":now}, "private_group_created", "private_group")
+
+    def customer_followup_save(self):
+        now = ts()
+        return self.customer_insert("customer_followups", ["followup_id","customer_id","employee_id","store_id","followup_type","content","next_action","due_date","status","created_at","updated_at"], {"followup_id":"CF-"+uuid.uuid4().hex[:10],"status":"todo","created_at":now,"updated_at":now}, "customer_followup_created", "customer_followup")
+
+    def customer_event_save(self):
+        now = ts()
+        return self.customer_insert("customer_events", ["event_id","title","store_id","target_segments","target_tags","invitation_message","status","created_at"], {"event_id":"CE-"+uuid.uuid4().hex[:10],"status":"draft","created_at":now}, "customer_event_created", "customer_event")
+
+    def api_customer_growth_get(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if not self.can_view_customer_growth(user):
+            return self.json_out({"ok": False, "message": "no permission"}, code=403)
+        if path == "/api/customer-growth":
+            return self.json_out(self.customer_growth_payload())
+        table_map = {"/api/customer-growth/segments": ("customer_segments","segments"), "/api/customer-growth/tags": ("customer_tags","tags"), "/api/customer-growth/groups": ("private_domain_groups","groups"), "/api/customer-growth/followups": ("customer_followups","followups"), "/api/customer-growth/events": ("customer_events","events")}
+        if path in table_map:
+            table, key = table_map[path]
+            with db() as conn:
+                rows = conn.execute(f"select * from {table} order by id desc limit 100").fetchall()
+            return self.json_out({"ok": True, key: [row_dict(r) for r in rows], "empty_message": self.customer_growth_empty()})
+        if path == "/api/customer-growth/value-analysis":
+            return self.json_out({"ok": True, "value_analysis": {"total_spend": None, "purchase_frequency": None, "preferred_brands": [], "next_best_action": self.customer_growth_empty()}})
+        return self.json_out({"ok": False, "message": "unknown customer growth api"}, code=404)
+
+    def api_customer_growth_post(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if not self.can_manage_customer_growth(user):
+            return self.json_out({"ok": False, "message": "no permission"}, code=403)
+        form = self.form()
+        now = ts()
+        if path == "/api/customer-growth/create-task":
+            with db() as conn:
+                cur = conn.execute("insert into tasks(task_id,title,description,owner,related_object_type,related_object_id,priority,status,due_date,source_type,source_id,created_by,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)", ("TASK-" + uuid.uuid4().hex[:10], form.get("title", U(r"\u987e\u5ba2\u8ddf\u8fdb")), form.get("description", ""), form.get("owner", user["name"]), "customer_growth", None, form.get("priority", "normal"), "todo", form.get("due_date", ""), "customer_growth", form.get("source_id", ""), user["id"], now, now))
+            self.log_action(user, "customer_growth_task_created", "task", cur.lastrowid, form.get("title", ""))
+            return self.json_out({"ok": True, "task_id": cur.lastrowid})
+        table_map = {"/api/customer-growth/segments": ("customer_segments", ["segment_id","segment_name","description","rules","customer_count","priority","status","created_at","updated_at"], {"segment_id":"CS-"+uuid.uuid4().hex[:10],"customer_count":0,"status":"draft","created_at":now,"updated_at":now}, "customer_segment_created"), "/api/customer-growth/tags": ("customer_tags", ["tag_id","tag_name","tag_type","description","status","created_at","updated_at"], {"tag_id":"CT-"+uuid.uuid4().hex[:10],"status":"active","created_at":now,"updated_at":now}, "customer_tag_created"), "/api/customer-growth/groups": ("private_domain_groups", ["group_id","group_name","platform","store_id","owner_employee_id","customer_count","group_type","topic","status","created_at","updated_at"], {"group_id":"PG-"+uuid.uuid4().hex[:10],"customer_count":0,"status":"draft","created_at":now,"updated_at":now}, "private_group_created"), "/api/customer-growth/followups": ("customer_followups", ["followup_id","customer_id","employee_id","store_id","followup_type","content","next_action","due_date","status","created_at","updated_at"], {"followup_id":"CF-"+uuid.uuid4().hex[:10],"status":"todo","created_at":now,"updated_at":now}, "customer_followup_created"), "/api/customer-growth/events": ("customer_events", ["event_id","title","store_id","target_segments","target_tags","invitation_message","status","created_at"], {"event_id":"CE-"+uuid.uuid4().hex[:10],"status":"draft","created_at":now}, "customer_event_created")}
+        if path in table_map:
+            table, cols, defaults, action = table_map[path]
+            vals = [defaults.get(c, form.get(c, "")) for c in cols]
+            with db() as conn:
+                cur = conn.execute(f"insert into {table}({','.join(cols)}) values({','.join('?' for _ in cols)})", vals)
+            self.log_action(user, action, table, cur.lastrowid, "")
+            return self.json_out({"ok": True, "id": cur.lastrowid})
+        return self.json_out({"ok": False, "message": "unknown customer growth write api"}, code=404)
+
     def store_operations(self, user):
         user = self.require_login(user)
         if not user:
@@ -4200,7 +4428,8 @@ class App(BaseHTTPRequestHandler):
         checks["inventory_decision_engine_status"] = "ready"
         checks["finance_profit_engine_status"] = "ready"
         checks["hr_performance_engine_status"] = "ready"
-        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task018", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
+        checks["customer_growth_engine_status"] = "ready"
+        return {"status": "ok" if checks["database_status"] == "ok" else "degraded", "app_version": "FoxBrain V4 Task019", "environment": os.environ.get("APP_ENV", "production"), **checks, "timestamp": now}
 
     def api_health(self):
         return self.json_out(self.health_payload())
