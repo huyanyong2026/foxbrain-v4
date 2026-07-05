@@ -80,6 +80,7 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [124_ENTERPRISE_PACK_15_DECISION_ENGINE.md](124_ENTERPRISE_PACK_15_DECISION_ENGINE.md)
 - [125_ENTERPRISE_PACK_16_AI_STRATEGY_CENTER.md](125_ENTERPRISE_PACK_16_AI_STRATEGY_CENTER.md)
 - [126_ENTERPRISE_PACK_17_FOXBRAIN_UNIVERSITY.md](126_ENTERPRISE_PACK_17_FOXBRAIN_UNIVERSITY.md)
+- [127_ENTERPRISE_PACK_18_GROWTH_ENGINE.md](127_ENTERPRISE_PACK_18_GROWTH_ENGINE.md)
 - [SDK_EXTENSION_STANDARD.md](SDK_EXTENSION_STANDARD.md)
 - [RELEASE_1_0_PRODUCTION_CHECKLIST.md](RELEASE_1_0_PRODUCTION_CHECKLIST.md)
 - [README_AUTO_UPDATE.md](README_AUTO_UPDATE.md)
@@ -127,6 +128,7 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [Task054 Pack15 Decision Engine](CODEX_TASKS/Task054_Pack15_Decision_Engine.md)
 - [Task055 Pack16 AI Strategy Center](CODEX_TASKS/Task055_Pack16_AI_Strategy_Center.md)
 - [Task056 Pack17 FoxBrain University](CODEX_TASKS/Task056_Pack17_FoxBrain_University.md)
+- [Task057 Pack18 Growth Engine](CODEX_TASKS/Task057_Pack18_Growth_Engine.md)
 
 Future tasks should use folders:
 

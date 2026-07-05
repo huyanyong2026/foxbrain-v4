@@ -133,6 +133,12 @@ def test_enterprise_pack_routes_present():
         "/api/university/certification",
         "/api/university/progress",
         "/api/university/knowledge-feedback",
+        "/api/growth-engine/framework",
+        "/api/growth-engine/scorecard",
+        "/api/growth-engine/store-growth",
+        "/api/growth-engine/brand-product",
+        "/api/growth-engine/customer-growth",
+        "/api/growth-engine/executive-scorecard",
     ]:
         assert route in portal
 
@@ -383,6 +389,25 @@ def test_pack_foxbrain_university_present():
         assert phrase in portal
 
 
+def test_pack_growth_engine_present():
+    portal = read("portal_v2.py")
+    for phrase in [
+        "enterprise_growth_engine_payload",
+        "growth_scorecard_payload",
+        "store_growth_analytics_payload",
+        "brand_product_growth_payload",
+        "customer_growth_models_payload",
+        "executive_growth_scorecard_payload",
+        "growth_engine_get",
+        "growth_scores_must_be_traceable_to_unified_data_model_kpi_and_decision_engine",
+        "all_growth_recommendations_must_be_explainable_and_traceable_to_data_sources",
+        "store_growth_recommendations_must_trace_to_metrics_tasks_and_knowledge",
+        "brand_and_product_growth_scores_must_reference_category_brand_product_and_promotion_sources",
+        "customer_growth_recommendations_must_trace_to_member_segments_loyalty_and_campaign_sources",
+    ]:
+        assert phrase in portal
+
+
 def test_production_deployment_files_present():
     for file_name in [
         "Dockerfile",
@@ -424,6 +449,7 @@ def test_enterprise_pack_docs_present():
         "docs/124_ENTERPRISE_PACK_15_DECISION_ENGINE.md",
         "docs/125_ENTERPRISE_PACK_16_AI_STRATEGY_CENTER.md",
         "docs/126_ENTERPRISE_PACK_17_FOXBRAIN_UNIVERSITY.md",
+        "docs/127_ENTERPRISE_PACK_18_GROWTH_ENGINE.md",
         "docs/SDK_EXTENSION_STANDARD.md",
         "docs/RELEASE_1_0_PRODUCTION_CHECKLIST.md",
         "docs/CODEX_TASKS/Task041_Pack02_SAP_AI_Connector.md",
@@ -442,5 +468,6 @@ def test_enterprise_pack_docs_present():
         "docs/CODEX_TASKS/Task054_Pack15_Decision_Engine.md",
         "docs/CODEX_TASKS/Task055_Pack16_AI_Strategy_Center.md",
         "docs/CODEX_TASKS/Task056_Pack17_FoxBrain_University.md",
+        "docs/CODEX_TASKS/Task057_Pack18_Growth_Engine.md",
     ]:
         assert (ROOT / doc).exists()

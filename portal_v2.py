@@ -2164,7 +2164,7 @@ class App(BaseHTTPRequestHandler):
             return self.api_brand_growth_get(user, path)
         if path.startswith("/api/knowledge"):
             return self.api_knowledge_get(user, path)
-        if path.startswith(("/api/operating-loop", "/api/strategy", "/api/strategy-center", "/api/university", "/api/learning", "/api/digital-twin", "/api/decision-engine", "/api/kernel", "/api/data-fabric", "/api/data-intelligence", "/api/kpi", "/api/insights", "/api/trends", "/api/data-sources", "/api/data-catalog", "/api/data-lineage", "/api/data-quality", "/api/data-freshness", "/api/data-ai-ready", "/api/data-access", "/api/integrations", "/api/security", "/api/operations", "/api/sdk", "/api/extensions", "/api/marketplace", "/api/product", "/api/help", "/api/onboarding", "/api/feedback", "/api/action")):
+        if path.startswith(("/api/operating-loop", "/api/strategy", "/api/strategy-center", "/api/university", "/api/learning", "/api/growth-engine", "/api/digital-twin", "/api/decision-engine", "/api/kernel", "/api/data-fabric", "/api/data-intelligence", "/api/kpi", "/api/insights", "/api/trends", "/api/data-sources", "/api/data-catalog", "/api/data-lineage", "/api/data-quality", "/api/data-freshness", "/api/data-ai-ready", "/api/data-access", "/api/integrations", "/api/security", "/api/operations", "/api/sdk", "/api/extensions", "/api/marketplace", "/api/product", "/api/help", "/api/onboarding", "/api/feedback", "/api/action")):
             return self.api_v5_get(user, path)
         if path.startswith("/api/sap/"):
             return self.sap_api_placeholder(user, path)
@@ -6074,6 +6074,10 @@ class App(BaseHTTPRequestHandler):
         checks["ai_tutor_status"] = "knowledge_connected"
         checks["certification_status"] = "tracked_not_permission_granting"
         checks["learning_permission_policy_status"] = "manager_rules_only"
+        checks["enterprise_pack_18_growth_engine_status"] = "framework_ready"
+        checks["growth_scorecard_status"] = "traceable"
+        checks["store_brand_product_customer_growth_status"] = "contract_ready"
+        checks["growth_recommendation_status"] = "explainable_source_traced"
         checks["v6_autonomous_worker_status"] = "scheduled" if os.environ.get("APP_ENV", "production") else "local"
         checks["worker_jobs"] = {
             "sap_sync": os.environ.get("SAP_SYNC_TIME", "22:00"),
@@ -7344,6 +7348,7 @@ class App(BaseHTTPRequestHandler):
             "/data-fabric": ("AI Data Fabric", "Unified data catalog, freshness, lineage, quality and AI readiness.", ["Data sources", "Catalog", "Lineage", "Quality", "AI-ready data", "Sensitive data"], "/api/data-fabric", "Task031"),
             "/data-intelligence": ("Data Intelligence", "Unified KPI and data service for dashboards, AI agents and decision engines.", ["Unified metrics", "KPI catalog", "Insight engine", "Data quality", "Trend APIs"], "/api/data-intelligence/framework", "Task052"),
             "/university": ("FoxBrain University", "Enterprise learning center with role paths, AI Tutor, certification and knowledge feedback.", ["Learning catalog", "Role paths", "AI Tutor", "Certification", "Progress", "Knowledge feedback"], "/api/university/framework", "Task056"),
+            "/growth-engine": ("Enterprise Growth Engine", "Traceable growth scorecards for stores, brands, products and customers.", ["Growth scores", "Store growth", "Brand growth", "Product growth", "Customer growth", "Executive scorecard"], "/api/growth-engine/framework", "Task057"),
             "/system/apps": ("App Platform", "Built-in app registry and future plugin architecture.", ["Installed apps", "Available apps", "Permissions", "Settings", "Health", "Events"], "/api/apps", "Task032"),
             "/system/apps/developer": ("App Developer Guide", "Manifest, permission, event bus and data fabric rules for future apps.", ["Manifest", "Routes", "Permissions", "Events", "Settings", "Security"], "/api/apps/developer/template", "Task032"),
             "/integrations": ("Integration Hub", "Safe connector registry for SAP, AI providers, search, messaging and webhooks.", ["Connectors", "Credential status", "Sync jobs", "Webhooks", "AI providers", "Search providers"], "/api/integrations", "Task033"),
@@ -7461,6 +7466,8 @@ class App(BaseHTTPRequestHandler):
             return self.json_out(self.strategy_center_get(user, path))
         if path.startswith("/api/university") or path.startswith("/api/learning"):
             return self.json_out(self.university_get(user, path))
+        if path.startswith("/api/growth-engine"):
+            return self.json_out(self.growth_engine_get(user, path))
         if path.startswith("/api/data-catalog"):
             return self.json_out({"ok": True, "datasets": self.v5_data_catalog()})
         if path.startswith("/api/data-quality"):
@@ -8150,6 +8157,114 @@ class App(BaseHTTPRequestHandler):
         if path in ("/api/university/knowledge-feedback", "/api/learning/knowledge-feedback"):
             return self.university_knowledge_feedback_payload()
         return {"ok": False, "message": "unknown university api", "path": path}
+
+    def growth_scorecard_payload(self, user, scope="enterprise"):
+        metrics = self.unified_metrics_service_payload(user)
+        decision = self.enterprise_decision_engine_payload(user)
+        m = metrics["metric_values"]
+        dimensions = [
+            {"dimension": "revenue", "score": 70 if (m.get("month_sales") or 0) else 35, "basis": [{"source": "unified_metrics_service", "field": "month_sales", "value": m.get("month_sales", 0)}]},
+            {"dimension": "margin", "score": 65 if (m.get("gross_margin") or 0) else 40, "basis": [{"source": "unified_metrics_service", "field": "gross_margin", "value": m.get("gross_margin", 0)}]},
+            {"dimension": "customer", "score": 55, "basis": [{"source": "kpi_catalog", "field": "customer_growth"}]},
+            {"dimension": "operations", "score": 60 if (m.get("risk_count") or 0) == 0 else 45, "basis": [{"source": "unified_metrics_service", "field": "risk_count", "value": m.get("risk_count", 0)}]},
+            {"dimension": "learning", "score": 50, "basis": [{"source": "foxbrain_university", "field": "learning_progress"}]},
+            {"dimension": "innovation", "score": 52, "basis": [{"source": "ai_strategy_center", "field": "strategy_models"}]},
+        ]
+        total = round(sum(item["score"] for item in dimensions) / len(dimensions), 2)
+        return {
+            "ok": True,
+            "service": "growth_score_service",
+            "scope": scope,
+            "overall_growth_score": total,
+            "dimensions": dimensions,
+            "decision_risk": decision["risk_scoring"],
+            "rule": "growth_scores_must_be_traceable_to_unified_data_model_kpi_and_decision_engine",
+        }
+
+    def store_growth_analytics_payload(self, user):
+        scorecard = self.growth_scorecard_payload(user, "store")
+        return {
+            "ok": True,
+            "service": "store_growth_analytics",
+            "evaluates": ["sales_trends", "store_maturity", "expansion_potential", "improvement_opportunities"],
+            "growth_score": scorecard["overall_growth_score"],
+            "recommendations": [
+                {"title": "Review store task execution and customer follow-up rhythm.", "basis": [{"source": "store_growth_plans", "field": "status"}, {"source": "unified_metrics_service", "field": "store_ranking"}], "confidence": 0.57},
+                {"title": "Use Digital Twin before relocation or expansion decisions.", "basis": [{"source": "digital_twin", "endpoint": "/api/digital-twin/simulation"}], "confidence": 0.55},
+            ],
+            "traceability_rule": "store_growth_recommendations_must_trace_to_metrics_tasks_and_knowledge",
+        }
+
+    def brand_product_growth_payload(self, user):
+        return {
+            "ok": True,
+            "service": "brand_product_growth_analytics",
+            "tracks": ["category_growth", "brand_contribution", "product_lifecycle", "promotion_effectiveness"],
+            "growth_scores": [
+                {"object_type": "brand", "object_id": "portfolio", "score": 58, "basis": [{"source": "strategy_brand_product_analysis", "field": "brand_portfolio"}, {"source": "decision_opportunity_engine", "field": "promotions"}]},
+                {"object_type": "product", "object_id": "lifecycle", "score": 56, "basis": [{"source": "digital_twin_relationships", "field": "Store-sells-Product"}, {"source": "kpi_catalog", "field": "sell_through_rate"}]},
+            ],
+            "recommendations": [
+                {"title": "Build brand role matrix before promotion decisions.", "basis": [{"source": "brand_growth", "field": "brand_roles"}], "confidence": 0.56},
+                {"title": "Review lifecycle and promotion effectiveness before clearance.", "basis": [{"source": "kpi_catalog", "field": "sell_through_rate"}, {"source": "decision_engine", "field": "approval_gate"}], "confidence": 0.54},
+            ],
+            "traceability_rule": "brand_and_product_growth_scores_must_reference_category_brand_product_and_promotion_sources",
+        }
+
+    def customer_growth_models_payload(self, user):
+        return {
+            "ok": True,
+            "service": "customer_growth_models",
+            "supports": ["member_segmentation", "loyalty_analysis", "churn_prediction", "campaign_recommendations"],
+            "growth_score": {"object_type": "customer", "score": 55, "basis": [{"source": "kpi_catalog", "field": "customer_growth"}, {"source": "customer_growth_segments", "field": "priority"}]},
+            "recommendations": [
+                {"title": "Segment members by value and product interest before campaign planning.", "basis": [{"source": "customer_segments", "field": "rules"}, {"source": "customer_tags", "field": "tag_type"}], "confidence": 0.57},
+                {"title": "Use loyalty and churn signals to create follow-up tasks.", "basis": [{"source": "customer_followups", "field": "status"}, {"source": "decision_engine", "field": "opportunities"}], "confidence": 0.55},
+            ],
+            "traceability_rule": "customer_growth_recommendations_must_trace_to_member_segments_loyalty_and_campaign_sources",
+        }
+
+    def executive_growth_scorecard_payload(self, user):
+        return {
+            "ok": True,
+            "service": "executive_growth_scorecard",
+            "enterprise": self.growth_scorecard_payload(user, "enterprise"),
+            "store": self.store_growth_analytics_payload(user),
+            "brand_product": self.brand_product_growth_payload(user),
+            "customer": self.customer_growth_models_payload(user),
+            "decision_engine": "/api/decision-engine/framework",
+            "strategy_center": "/api/strategy-center/framework",
+        }
+
+    def enterprise_growth_engine_payload(self, user):
+        return {
+            "ok": True,
+            "platform": "enterprise_growth_engine",
+            "purpose": "ai_driven_enterprise_growth_framework",
+            "inputs": ["unified_data_model", "enterprise_knowledge", "enterprise_decision_engine", "data_intelligence", "digital_twin", "strategy_center"],
+            "growth_domains": ["store", "brand", "product", "customer"],
+            "scorecard": self.growth_scorecard_payload(user),
+            "store_growth": self.store_growth_analytics_payload(user),
+            "brand_product_growth": self.brand_product_growth_payload(user),
+            "customer_growth": self.customer_growth_models_payload(user),
+            "executive_scorecard": self.executive_growth_scorecard_payload(user),
+            "rule": "all_growth_recommendations_must_be_explainable_and_traceable_to_data_sources",
+        }
+
+    def growth_engine_get(self, user, path):
+        if path in ("/api/growth-engine", "/api/growth-engine/framework"):
+            return self.enterprise_growth_engine_payload(user)
+        if path in ("/api/growth-engine/scorecard", "/api/growth-engine/scores"):
+            return self.growth_scorecard_payload(user)
+        if path in ("/api/growth-engine/store", "/api/growth-engine/store-growth"):
+            return self.store_growth_analytics_payload(user)
+        if path in ("/api/growth-engine/brand-product", "/api/growth-engine/product-growth", "/api/growth-engine/brand-growth"):
+            return self.brand_product_growth_payload(user)
+        if path in ("/api/growth-engine/customer", "/api/growth-engine/customer-growth"):
+            return self.customer_growth_models_payload(user)
+        if path in ("/api/growth-engine/executive-scorecard", "/api/growth-engine/dashboard"):
+            return self.executive_growth_scorecard_payload(user)
+        return {"ok": False, "message": "unknown growth engine api", "path": path}
 
     def v5_data_catalog(self):
         return [

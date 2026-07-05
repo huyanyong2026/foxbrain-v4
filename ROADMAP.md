@@ -32,6 +32,7 @@
 - Pack 15 decision engine: explainable recommendations, risk scoring, opportunity discovery and approval gates for high-risk operations.
 - Pack 16 AI Strategy Center: KPI-linked OKRs, strategy models, multi-scenario comparison, expansion planning and strategic dashboard.
 - Pack 17 FoxBrain University: enterprise learning catalog, role paths, AI Tutor, certifications, progress tracking and knowledge feedback.
+- Pack 18 Growth Engine: traceable growth scoring for stores, brands, products and customers with executive scorecards.
 - Replace placeholder worker jobs with real knowledge indexing and report generation.
 - Add SAP incremental sync conflict detection.
 - Add structured tests for key API routes.

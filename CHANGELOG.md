@@ -38,3 +38,5 @@
 - Strategy analysis now aligns with Data Intelligence, Digital Twin and Enterprise Decision Engine contracts.
 - Integrated Pack 17 FoxBrain University with learning catalog, role-based paths, AI Tutor, certification, progress dashboard and knowledge feedback.
 - Learning outcomes now support employee growth while explicitly avoiding automatic business permission changes.
+- Integrated Pack 18 Enterprise Growth Engine with growth scorecards, store growth, brand/product growth, customer growth and executive scorecards.
+- Growth recommendations now reference data sources and align with Data Intelligence, Decision Engine, Digital Twin and Strategy Center.
