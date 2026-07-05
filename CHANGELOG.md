@@ -18,3 +18,5 @@
 - High-risk automations now default to pending approval and are blocked from automatic execution before review.
 - Integrated Pack 07 Enterprise Brain framework with enterprise memory, decision engine, forecast, simulation and AI Council contracts.
 - AI recommendation contracts now require data or knowledge basis and preserve human approval for high-risk decisions.
+- Integrated Pack 08 unified enterprise portal with SSO contract, role navigation, shared components, message center and task center.
+- Added `/portal` as the unified mobile-first portal entry for phone, tablet and desktop.

@@ -2034,6 +2034,8 @@ class App(BaseHTTPRequestHandler):
             return self.settings_center(user)
         if path == "/system/modules":
             return self.system_modules_page(user)
+        if path == "/portal":
+            return self.enterprise_portal(user)
         if path == "/system/data-readiness":
             return self.data_readiness_page(user)
         if path == "/notifications":
@@ -2132,6 +2134,8 @@ class App(BaseHTTPRequestHandler):
             return self.api_task005_get(user, path)
         if path.startswith("/api/automation") or path.startswith("/api/workflows") or path.startswith("/api/notifications"):
             return self.api_automation_get(user, path)
+        if path.startswith("/api/portal"):
+            return self.api_portal_get(user, path)
         if path.startswith("/api/brain"):
             return self.api_brain_get(user, path)
         if path.startswith("/api/memory") or path.startswith("/api/preferences") or path.startswith("/api/decisions"):
@@ -4951,6 +4955,7 @@ class App(BaseHTTPRequestHandler):
 
     def platform_modules(self):
         return [
+            ("portal", U(r"\u4f01\u4e1a\u95e8\u6237"), "/portal", "system", "view_workspace"),
             ("ai_ceo", "AI CEO", "/ai-ceo", "ai", "boss"),
             ("business_cockpit", U(r"\u7ecf\u8425\u9a7e\u9a76\u8231"), "/business-overview", "ai", "boss"),
             ("jarvis", "Jarvis", "/jarvis", "ai", "view_workspace"),
@@ -5510,6 +5515,160 @@ class App(BaseHTTPRequestHandler):
             items.append({"item_id": r.get("risk_id") or str(r["id"]), "item_type": "risk", "title": r["title"], "priority": r["level"], "owner": r["owner"], "due_at": r["due_date"], "related_object": "risk", "status": r["status"], "source_module": "risk_center", "action_url": "/risks"})
         return {"ok": True, "items": items, "empty_message": self.cockpit_data()["empty_message"]}
 
+    def portal_sso_payload(self, user):
+        return {
+            "ok": True,
+            "sso": {
+                "provider": "foxbrain_session",
+                "status": "authenticated" if user else "anonymous",
+                "session_cookie": "fp_session",
+                "single_login_for_modules": True,
+                "password_policy": "existing_portal_policy",
+            },
+            "user": {"id": user["id"], "name": user["name"], "role": user["role"], "store": user["store"]} if user else {},
+        }
+
+    def portal_role_profile(self, user):
+        role = user["role"]
+        if role in ("boss", "finance", "purchasing"):
+            portal = "CEO"
+            home = "/boss"
+        elif role == "store_manager":
+            portal = "Store Manager"
+            home = "/desktop"
+        elif role == "admin":
+            portal = "Admin"
+            home = "/system/modules"
+        elif role == "employee":
+            portal = "Employee"
+            home = "/employee-workspace"
+        else:
+            portal = "Employee"
+            home = "/portal"
+        return {"role": role, "portal": portal, "home": home}
+
+    def portal_navigation_payload(self, user):
+        apps = self.os_apps_payload(user)["apps"]
+        nav = []
+        for app in apps:
+            if app["permission_status"] == "allowed":
+                nav.append({
+                    "key": app["module_key"],
+                    "label": app["app_name"],
+                    "route": app["route"],
+                    "category": app["category"],
+                    "icon": app["module_key"],
+                    "responsive": True,
+                })
+        quick = [
+            {"key": "portal", "label": U(r"\u4f01\u4e1a\u95e8\u6237"), "route": "/portal"},
+            {"key": "messages", "label": U(r"\u6d88\u606f"), "route": "/notifications"},
+            {"key": "tasks", "label": U(r"\u4efb\u52a1"), "route": "/tasks"},
+            {"key": "jarvis", "label": "Jarvis", "route": "/jarvis"},
+        ]
+        return {"ok": True, "navigation": nav, "quick_actions": quick, "role_profile": self.portal_role_profile(user)}
+
+    def portal_message_center_payload(self, user):
+        approvals = self.os_approvals_payload(user)["approvals"]
+        queue = self.os_work_queue_payload(user)["items"]
+        alerts = self.dashboard_alert_service_payload(user)["alerts"]
+        recommendations = self.dashboard_recommendation_service_payload(user)["recommendations"]
+        with db() as conn:
+            notifications = [row_dict(r) for r in conn.execute("select * from notifications order by created_at desc limit 30").fetchall()]
+        return {
+            "ok": True,
+            "message_center": {
+                "notifications": notifications,
+                "approvals": approvals,
+                "tasks": [i for i in queue if i["item_type"] == "task"],
+                "ai_recommendations": recommendations,
+                "system_alerts": alerts,
+            },
+        }
+
+    def portal_task_center_payload(self, user):
+        queue = self.os_work_queue_payload(user)["items"]
+        approvals = self.os_approvals_payload(user)["approvals"]
+        recommendations = self.dashboard_recommendation_service_payload(user)["recommendations"]
+        workflow_actions = [i for i in queue if i.get("source_module") in ("workflow", "automation", "risk_center")]
+        return {
+            "ok": True,
+            "task_center": {
+                "pending_approvals": approvals,
+                "assigned_tasks": [i for i in queue if i["item_type"] == "task"],
+                "workflow_actions": workflow_actions,
+                "ai_generated_suggestions": recommendations,
+            },
+        }
+
+    def portal_component_contract_payload(self):
+        return {
+            "ok": True,
+            "components": {
+                "shell": ["topbar", "role_badge", "quick_actions", "responsive_grid"],
+                "cards": ["metric_card", "app_card", "message_card", "task_card"],
+                "navigation": ["desktop_sidebar", "tablet_tabs", "mobile_bottom_nav"],
+                "theme": ["light_mode", "dark_mode_future"],
+                "accessibility": ["large_touch_targets", "readable_font_size", "keyboard_focus_future"],
+            },
+            "design_rules": ["mobile_first", "apple_style_simplicity", "consistent_navigation", "responsive_layout"],
+        }
+
+    def portal_framework_payload(self, user):
+        return {
+            "ok": True,
+            "platform": "unified_enterprise_portal",
+            "pack_alignment": ["Pack01 foundation", "Pack02 SAP AI", "Pack03 knowledge", "Pack04 agents", "Pack05 dashboard", "Pack06 automation", "Pack07 brain", "Pack08 mobile portal"],
+            "sso": self.portal_sso_payload(user)["sso"],
+            "role_profile": self.portal_role_profile(user),
+            "navigation": self.portal_navigation_payload(user),
+            "components": self.portal_component_contract_payload()["components"],
+            "message_center": self.portal_message_center_payload(user)["message_center"],
+            "task_center": self.portal_task_center_payload(user)["task_center"],
+            "responsive": {"mobile": True, "tablet": True, "desktop": True, "offline_ready_architecture": "contract_ready"},
+        }
+
+    def enterprise_portal(self, user):
+        user = self.require_login(user)
+        if not user:
+            return
+        data = self.portal_framework_payload(user)
+        nav = data["navigation"]["navigation"][:9]
+        messages = data["message_center"]
+        tasks = data["task_center"]
+        app_cards = "".join(self.card(n["label"], n["category"], n["route"], "btn", True) for n in nav)
+        body = f"""
+<div class="panel">
+  <h2>FoxBrain {U(r'\u7edf\u4e00\u4f01\u4e1a\u95e8\u6237')}</h2>
+  <p class="small">{U(r'\u4e00\u6b21\u767b\u5f55\uff0c\u6309\u89d2\u8272\u8fdb\u5165\u8001\u677f\u3001\u5e97\u957f\u3001\u5458\u5de5\u3001\u7ba1\u7406\u5458\u7b49\u95e8\u6237\u3002\u624b\u673a\u3001\u5e73\u677f\u3001\u7535\u8111\u5171\u7528\u540c\u4e00\u5957\u7ec4\u4ef6\u548c\u5bfc\u822a\u3002')}</p>
+  <div class="metrics">{self.metric('Portal', data['role_profile']['portal'], data['role_profile']['role'])}{self.metric('SSO', data['sso']['status'], data['sso']['provider'])}{self.metric(U(r'\u6d88\u606f'), len(messages['notifications']), U(r'\u901a\u77e5'))}{self.metric(U(r'\u5f85\u529e'), len(tasks['assigned_tasks']), U(r'\u4efb\u52a1'))}{self.metric(U(r'\u5ba1\u6279'), len(tasks['pending_approvals']), U(r'\u5f85\u5904\u7406'))}</div>
+</div>
+<div class="grid">{app_cards}</div>
+<div class="split">
+  <div class="panel"><h2>{U(r'\u6d88\u606f\u4e2d\u5fc3')}</h2>{self.bullets([n.get('title','') for n in messages['notifications'][:6]] or [U(r'\u6682\u65e0\u901a\u77e5\u3002')])}<p><a class="btn" href="/notifications">{U(r'\u6253\u5f00\u6d88\u606f')}</a></p></div>
+  <div class="panel"><h2>{U(r'\u4efb\u52a1\u4e2d\u5fc3')}</h2>{self.bullets([t.get('title','') for t in tasks['assigned_tasks'][:6]] or [self.cockpit_data()['empty_message']])}<p><a class="btn green" href="/tasks">{U(r'\u6253\u5f00\u4efb\u52a1')}</a></p></div>
+</div>"""
+        self.out(layout(U(r"\u7edf\u4e00\u4f01\u4e1a\u95e8\u6237"), body, user=user, wide=True))
+
+    def api_portal_get(self, user, path):
+        if not user:
+            return self.json_out({"ok": False, "message": "login required"}, code=401)
+        if path in ("/api/portal", "/api/portal/framework"):
+            return self.json_out(self.portal_framework_payload(user))
+        if path == "/api/portal/sso":
+            return self.json_out(self.portal_sso_payload(user))
+        if path == "/api/portal/navigation":
+            return self.json_out(self.portal_navigation_payload(user))
+        if path == "/api/portal/components":
+            return self.json_out(self.portal_component_contract_payload())
+        if path == "/api/portal/messages":
+            return self.json_out(self.portal_message_center_payload(user))
+        if path == "/api/portal/tasks":
+            return self.json_out(self.portal_task_center_payload(user))
+        if path == "/api/portal/responsive":
+            return self.json_out({"ok": True, "responsive": {"mobile": True, "tablet": True, "desktop": True, "breakpoints": ["mobile", "tablet", "desktop"], "shared_components": True}})
+        return self.json_out({"ok": False, "message": "unknown portal api"}, code=404)
+
     def os_approvals_payload(self, user):
         with db() as conn:
             reports = [row_dict(r) for r in conn.execute("select id,title,status,updated_at from reports where status in ('draft','pending_review','generated') order by updated_at desc limit 20").fetchall()] if "reports" in {x[0] for x in conn.execute("select name from sqlite_master where type='table'").fetchall()} else []
@@ -5840,6 +5999,10 @@ class App(BaseHTTPRequestHandler):
         checks["decision_engine_status"] = "evidence_required"
         checks["forecast_simulation_status"] = "contract_ready"
         checks["ai_council_status"] = "skeleton_ready"
+        checks["enterprise_pack_08_portal_status"] = "framework_ready"
+        checks["portal_sso_status"] = "session_sso_ready"
+        checks["portal_navigation_status"] = "role_based"
+        checks["portal_responsive_status"] = "mobile_tablet_desktop"
         checks["v6_autonomous_worker_status"] = "scheduled" if os.environ.get("APP_ENV", "production") else "local"
         checks["worker_jobs"] = {
             "sap_sync": os.environ.get("SAP_SYNC_TIME", "22:00"),

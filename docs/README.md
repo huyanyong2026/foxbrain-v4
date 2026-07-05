@@ -70,6 +70,7 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [114_ENTERPRISE_PACK_05_DASHBOARD.md](114_ENTERPRISE_PACK_05_DASHBOARD.md)
 - [115_ENTERPRISE_PACK_06_AUTOMATION.md](115_ENTERPRISE_PACK_06_AUTOMATION.md)
 - [116_ENTERPRISE_PACK_07_ENTERPRISE_BRAIN.md](116_ENTERPRISE_PACK_07_ENTERPRISE_BRAIN.md)
+- [117_ENTERPRISE_PACK_08_MOBILE_PORTAL.md](117_ENTERPRISE_PACK_08_MOBILE_PORTAL.md)
 - [README_AUTO_UPDATE.md](README_AUTO_UPDATE.md)
 - [README_BACKUP_RESTORE.md](README_BACKUP_RESTORE.md)
 - [README_ENV.md](README_ENV.md)
@@ -105,6 +106,7 @@ This directory is the long-term documentation system for FoxBrain V4.
 - [Task044 Pack05 Dashboard Framework](CODEX_TASKS/Task044_Pack05_Dashboard_Framework.md)
 - [Task045 Pack06 Automation Framework](CODEX_TASKS/Task045_Pack06_Automation_Framework.md)
 - [Task046 Pack07 Enterprise Brain](CODEX_TASKS/Task046_Pack07_Enterprise_Brain.md)
+- [Task047 Pack08 Mobile Portal](CODEX_TASKS/Task047_Pack08_Mobile_Portal.md)
 
 Future tasks should use folders:
 

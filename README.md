@@ -26,8 +26,9 @@ After deployment, FoxBrain runs on the cloud server. Your personal computer can 
 - Pack 05: unified dashboard framework with KPI service, alert service and evidence-based AI recommendations.
 - Pack 06: unified automation framework with scheduling, retry policy, notifications, audit logs and approval gates.
 - Pack 07: Enterprise Brain framework for enterprise memory, decision support, forecasting, simulation and AI Council.
+- Pack 08: unified enterprise portal for SSO, role navigation, shared components and responsive mobile/tablet/desktop access.
 
-The Pack 02, Pack 03, Pack 04, Pack 05, Pack 06 and Pack 07 implementation is additive. Existing login, mobile pages, cloud deployment, SAP sync status, knowledge pages, agent center pages, dashboard pages, automation pages and memory pages are preserved.
+The Pack 02, Pack 03, Pack 04, Pack 05, Pack 06, Pack 07 and Pack 08 implementation is additive. Existing login, mobile pages, cloud deployment, SAP sync status, knowledge pages, agent center pages, dashboard pages, automation pages and memory pages are preserved.
 
 ## Enterprise Knowledge Platform APIs
 
@@ -59,6 +60,11 @@ The Pack 02, Pack 03, Pack 04, Pack 05, Pack 06 and Pack 07 implementation is ad
 - `/api/brain/forecast`
 - `/api/brain/simulation`
 - `/api/brain/ai-council`
+- `/api/portal/framework`
+- `/api/portal/sso`
+- `/api/portal/navigation`
+- `/api/portal/messages`
+- `/api/portal/tasks`
 
 ## Core Modules
 

@@ -65,6 +65,13 @@ def test_enterprise_pack_routes_present():
         "/api/brain/simulation",
         "/api/brain/ai-council",
         "/api/brain/recommendation-contract",
+        "/api/portal/framework",
+        "/api/portal/sso",
+        "/api/portal/navigation",
+        "/api/portal/components",
+        "/api/portal/messages",
+        "/api/portal/tasks",
+        "/api/portal/responsive",
     ]:
         assert route in portal
 
@@ -131,6 +138,23 @@ def test_pack_enterprise_brain_present():
         assert phrase in portal
 
 
+def test_pack_mobile_portal_present():
+    portal = read("portal_v2.py")
+    for phrase in [
+        "enterprise_portal",
+        "portal_framework_payload",
+        "portal_sso_payload",
+        "portal_navigation_payload",
+        "portal_message_center_payload",
+        "portal_task_center_payload",
+        "portal_component_contract_payload",
+        "mobile_bottom_nav",
+        "single_login_for_modules",
+    ]:
+        assert phrase in portal
+    assert '"/portal"' in portal
+
+
 def test_enterprise_pack_docs_present():
     for doc in [
         "docs/110_ENTERPRISE_PACK_01.md",
@@ -140,11 +164,13 @@ def test_enterprise_pack_docs_present():
         "docs/114_ENTERPRISE_PACK_05_DASHBOARD.md",
         "docs/115_ENTERPRISE_PACK_06_AUTOMATION.md",
         "docs/116_ENTERPRISE_PACK_07_ENTERPRISE_BRAIN.md",
+        "docs/117_ENTERPRISE_PACK_08_MOBILE_PORTAL.md",
         "docs/CODEX_TASKS/Task041_Pack02_SAP_AI_Connector.md",
         "docs/CODEX_TASKS/Task042_Pack03_Knowledge_Platform.md",
         "docs/CODEX_TASKS/Task043_Pack04_AI_Agent_Framework.md",
         "docs/CODEX_TASKS/Task044_Pack05_Dashboard_Framework.md",
         "docs/CODEX_TASKS/Task045_Pack06_Automation_Framework.md",
         "docs/CODEX_TASKS/Task046_Pack07_Enterprise_Brain.md",
+        "docs/CODEX_TASKS/Task047_Pack08_Mobile_Portal.md",
     ]:
         assert (ROOT / doc).exists()
