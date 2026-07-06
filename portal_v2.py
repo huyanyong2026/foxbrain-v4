@@ -29,6 +29,7 @@ SAP_SUMMARY_FILE = os.environ.get("SAP_SUMMARY_FILE", "/opt/firefox-sap-sync/lat
 UPLOAD_DIR = APP_DIR + "/uploads"
 HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8088"))
+MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", str(20 * 1024 * 1024)))
 LOCK_LIMIT = 5
 LOCK_SECONDS = 15 * 60
 
@@ -3020,9 +3021,12 @@ class App(BaseHTTPRequestHandler):
         user = self.current_user()
         if not user:
             return self.redir("/login")
+        content_length = int(self.headers.get("Content-Length", "0") or 0)
+        if content_length > MAX_UPLOAD_BYTES:
+            return self.out(layout(U(r"\u6587\u4ef6\u4e0a\u4f20"), f"<div class='alert'>{U(r'\u6587\u4ef6\u592a\u5927\uff0c\u8bf7\u63a7\u5236\u5728 20MB \u4ee5\u5185\u540e\u91cd\u8bd5\u3002')}</div><p><a class='btn' href='/upload'>{U(r'\u8fd4\u56de\u4e0a\u4f20')}</a></p>", user=user), code=413)
         form = self.multipart()
         item = form["file"] if "file" in form else None
-        if not item or not getattr(item, "filename", ""):
+        if item is None or not getattr(item, "filename", ""):
             return self.upload(user)
         original = Path(item.filename).name
         module = module_key(form.getfirst("module", "knowledge"))
