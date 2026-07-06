@@ -2456,7 +2456,7 @@ class App(BaseHTTPRequestHandler):
                     "sap_nightly_sync": os.environ.get("SAP_SYNC_TIME", "22:00"),
                     "knowledge_indexing": os.environ.get("KNOWLEDGE_INDEX_TIME", "02:00"),
                     "daily_business_report": os.environ.get("DAILY_REPORT_TIME", "08:00"),
-                    "backup": os.environ.get("BACKUP_TIME", "03:00"),
+                    "backup": os.environ.get("BACKUP_TIME", "02:30"),
                 },
                 "event_triggers": ["sap_data_change", "document_uploaded", "knowledge_approved", "inventory_threshold", "sales_threshold", "approval_decided"],
                 "execution_rule": "scheduled_jobs_create_logs_and_never_bypass_approval",
@@ -6105,7 +6105,7 @@ class App(BaseHTTPRequestHandler):
         checks["worker_jobs"] = {
             "sap_sync": os.environ.get("SAP_SYNC_TIME", "22:00"),
             "knowledge_index": os.environ.get("KNOWLEDGE_INDEX_TIME", "02:00"),
-            "backup": os.environ.get("BACKUP_TIME", "03:00"),
+            "backup": os.environ.get("BACKUP_TIME", "02:30"),
             "daily_report": os.environ.get("DAILY_REPORT_TIME", "08:00"),
             "web_research": os.environ.get("WEB_RESEARCH_TIME", "10:00"),
             "weekly_report": os.environ.get("WEEKLY_REPORT_TIME", "MON 09:00"),
@@ -8687,7 +8687,7 @@ class App(BaseHTTPRequestHandler):
         return {
             "ok": True,
             "backup_recovery": {
-                "scheduled_backups": os.environ.get("BACKUP_TIME", "03:00"),
+                "scheduled_backups": os.environ.get("BACKUP_TIME", "02:30"),
                 "backup_script": "backup.sh",
                 "restore_script": "restore.sh",
                 "restore_validation": "required_before_production_release",

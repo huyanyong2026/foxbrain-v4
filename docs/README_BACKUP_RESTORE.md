@@ -2,10 +2,10 @@
 
 ## 自动备份
 
-安装脚本会创建每日 03:00 备份：
+安装脚本会创建每日 02:30 备份：
 
 ```cron
-0 3 * * * /opt/foxbrain/backup.sh
+30 2 * * * /opt/foxbrain/backup.sh
 ```
 
 备份目录：

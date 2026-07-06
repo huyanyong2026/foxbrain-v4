@@ -104,7 +104,7 @@ def main():
     jobs = [
         ("sap_sync", os.getenv("SAP_SYNC_TIME", "22:00"), run_sap_sync),
         ("knowledge_index", os.getenv("KNOWLEDGE_INDEX_TIME", "02:00"), run_knowledge_index),
-        ("backup", os.getenv("BACKUP_TIME", "03:00"), run_backup),
+        ("backup", os.getenv("BACKUP_TIME", "02:30"), run_backup),
         ("daily_report", os.getenv("DAILY_REPORT_TIME", "08:00"), run_daily_report),
         ("web_research", os.getenv("WEB_RESEARCH_TIME", "10:00"), run_web_research),
     ]

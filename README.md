@@ -509,7 +509,7 @@ Scheduled jobs:
 
 - SAP sync: 22:00
 - Knowledge index: 02:00
-- Backup: 03:00
+- Backup: 02:30
 - Daily business report: 08:00
 - Web research: 10:00
 - Weekly report: Monday 09:00
