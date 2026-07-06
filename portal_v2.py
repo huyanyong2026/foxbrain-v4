@@ -7650,8 +7650,8 @@ class App(BaseHTTPRequestHandler):
         with db() as conn:
             logs = conn.execute("select * from system_logs order by created_at desc limit 120").fetchall()
             acts = conn.execute("select * from activity_log order by created_at desc limit 40").fetchall()
-        log_items = [l["created_at"] + " / " + l["module"] + " / " + l["action"] + " / " + summarize_text(l["message"] or "", 60) for l in logs] or [U(r"\u6682\u65e0\u7cfb\u7edf\u65e5\u5fd7\u3002")]
-        act_items = [a["created_at"] + " / " + a["action"] + " / " + (a["target_type"] or "") for a in acts] or [U(r"\u6682\u65e0\u64cd\u4f5c\u65e5\u5fd7\u3002")]
+        log_items = [str(l["created_at"]) + " / " + (l["module"] or "") + " / " + (l["action"] or "") + " / " + summarize_text(l["message"] or "", 60) for l in logs] or [U(r"\u6682\u65e0\u7cfb\u7edf\u65e5\u5fd7\u3002")]
+        act_items = [str(a["created_at"]) + " / " + (a["action"] or "") + " / " + (a["target_type"] or "") for a in acts] or [U(r"\u6682\u65e0\u64cd\u4f5c\u65e5\u5fd7\u3002")]
         body = f"""
 <div class="panel"><h2>{U(r'\u65e5\u5fd7\u4e2d\u5fc3')}</h2><p class="small">{U(r'\u8bb0\u5f55 AI \u64cd\u4f5c\u3001\u4efb\u52a1\u3001\u5185\u5bb9\u3001\u6743\u9650\u548c\u7cfb\u7edf\u884c\u4e3a\uff0c\u7528\u4e8e\u8ffd\u6eaf\u548c\u5ba1\u8ba1\u3002')}</p></div>
 <div class="split"><div class="panel"><h2>{U(r'\u7cfb\u7edf\u65e5\u5fd7')}</h2>{self.bullets(log_items)}</div><div class="panel"><h2>{U(r'\u64cd\u4f5c\u65e5\u5fd7')}</h2>{self.bullets(act_items)}</div></div>"""
