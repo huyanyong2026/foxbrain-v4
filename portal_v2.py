@@ -357,37 +357,32 @@ def prompt_json(data, limit=9000):
 
 def load_summary():
     fallback = {
-        "data_date": U(r"\u6d4b\u8bd5\u6570\u636e"),
-        "yesterday_sales": 80539.66,
-        "yesterday_gross_profit": 23848.03,
-        "yesterday_gross_margin": 29.6,
-        "month_sales": 118059.57,
-        "month_gross_profit": 35385.52,
+        "data_date": "",
+        "yesterday_sales": 0,
+        "yesterday_gross_profit": 0,
+        "yesterday_gross_margin": 0,
+        "month_sales": 0,
+        "month_gross_profit": 0,
         "month_target": 900000,
-        "completion_rate": 13.1,
+        "completion_rate": 0,
         "inventory_amount": 0,
         "risk_count": 0,
-        "top_stores": [
-            {"store": "8001", "sales": 43866.40, "gross_profit": 12642.40},
-            {"store": "8002", "sales": 36844.00, "gross_profit": 9200.43},
-            {"store": "8003", "sales": 27678.17, "gross_profit": 9195.06},
-        ],
-        "ai_suggestions": [
-            U(r"\u4eca\u65e5\u5148\u68c0\u67e5 8001\u30018002\u30018003 \u4e09\u4e2a\u4e3b\u529b\u4ed3\u5e93\u7684\u9500\u552e\u548c\u6bdb\u5229\u5dee\u5f02\u3002"),
-            U(r"\u628a 7 \u6708\u76ee\u6807\u62c6\u5230\u6bcf\u5e97\u6bcf\u65e5\uff0c\u6bcf\u5929\u8ffd\u8e2a\u5dee\u989d\u3002"),
-            U(r"\u5e93\u5b58\u5206\u6790\u4e0b\u4e00\u6b65\u8981\u52a0\u5165\u6ede\u9500\u5929\u6570\u548c\u5c3a\u7801\u7ed3\u6784\u3002"),
-        ],
-        "todos": [
-            U(r"\u786e\u8ba4\u4ed3\u5e93\u4ee3\u7801 8001\u30018002\u30018003\u30018014 \u5bf9\u5e94\u7684\u95e8\u5e97\u540d\u79f0\u3002"),
-            U(r"\u68c0\u67e5 SAP B1 \u6bcf\u665a 22:00 \u81ea\u52a8\u540c\u6b65\u7ed3\u679c\u3002"),
-            U(r"\u4e3a AI \u603b\u7ecf\u7406\u63a5\u5165\u6570\u636e\u67e5\u8be2\u5de5\u5177\u3002"),
-        ],
+        "top_stores": [],
+        "top_brands": [],
+        "ai_suggestions": [],
+        "todos": [],
+        "_source": SAP_SUMMARY_FILE,
+        "_is_fallback": True,
     }
     try:
         if os.path.exists(SAP_SUMMARY_FILE):
             with open(SAP_SUMMARY_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            return {**fallback, **data}
+            merged = {**fallback, **data}
+            merged["_source"] = SAP_SUMMARY_FILE
+            merged["_is_fallback"] = False
+            merged["_loaded_at"] = ts()
+            return merged
     except Exception:
         pass
     return fallback
@@ -2452,6 +2447,7 @@ def layout(title, body, user=None, msg="", wide=False):
         ).format(esc(user["name"]), esc(ROLES.get(user["role"], user["role"])), esc(user["store"]), T["change_password"], T["logout"])
     alert = f'<div class="alert">{esc(msg)}</div>' if msg else ""
     max_width = "1180px" if wide else "980px"
+    subtitle_html = "" if user else "<p class=\"lead\">{}</p>".format(T["subtitle"])
     return f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{esc(title)}</title>
@@ -2476,7 +2472,7 @@ button,.btn{{display:inline-block;max-width:100%;border:0;border-radius:8px;back
 .alert{{padding:12px;background:#fff7d6;border:1px solid #ecd27a;border-radius:8px;margin:12px 0}}table{{width:100%;border-collapse:collapse;table-layout:auto}}th,td{{border-bottom:1px solid #eee;padding:10px;text-align:left;vertical-align:top}}th{{white-space:nowrap}}.inline{{display:flex;gap:8px;align-items:center;flex-wrap:wrap}}.inline form{{display:inline}}.small{{font-size:13px;color:#666}}
 @media(max-width:820px){{main{{width:calc(100% - 16px);padding:10px 0 34px;overflow:hidden}}section{{padding:0 2px}}h1{{font-size:24px;line-height:1.22}}h2{{font-size:18px}}.lead{{font-size:14px;line-height:1.55}}.grid,.metrics,.split,.chat-shell{{grid-template-columns:1fr;gap:12px}}.panel{{padding:14px;margin:10px 0;border-radius:8px;overflow:hidden}}.card{{min-height:0;padding:14px}}.metric{{min-height:0;padding:12px}}.metric strong{{font-size:20px}}.store-row{{grid-template-columns:1fr}}.btn,button{{width:100%;padding:15px;min-height:48px}}.chat-input{{position:static;background:#fff;border:1px solid #ddd7cc;border-radius:8px;padding:14px;margin:10px 0;box-shadow:0 8px 22px rgba(0,0,0,.05)}}.chat-input p{{margin-bottom:0}}.chipbar{{display:grid;grid-template-columns:1fr;gap:8px;overflow:visible;padding:4px 0 0}}.chipbar button{{width:100%;min-height:44px;text-align:left;white-space:normal;line-height:1.35}}.topbar{{align-items:flex-start;flex-direction:column;padding:12px;position:sticky;top:0;z-index:5}}.topbar a{{margin:0 12px 0 0;display:inline-block;padding:8px 0}}table,tbody,tr,td,th{{display:block;width:100%}}thead{{display:none}}tr{{border:1px solid #eee;border-radius:8px;margin:10px 0;padding:8px;background:#fff;overflow:hidden}}td{{border:0;padding:7px 4px}}td:empty{{display:none}}.inline{{display:grid;grid-template-columns:1fr;gap:8px}}.inline form{{display:block;margin-top:0}}.pill{{border-radius:8px}}}}
 @media(max-width:420px){{main{{width:calc(100% - 12px)}}h1{{font-size:22px}}.panel,.card{{padding:12px}}input,select,textarea{{padding:13px}}.metrics{{gap:8px}}}}
-</style></head><body><main>{nav}<section><h1>{esc(title)}</h1><p class="lead">{T['subtitle']}</p></section>{alert}{body}</main></body></html>"""
+</style></head><body><main>{nav}<section><h1>{esc(title)}</h1>{subtitle_html}</section>{alert}{body}</main></body></html>"""
 
 
 class App(BaseHTTPRequestHandler):
@@ -4370,28 +4366,26 @@ class App(BaseHTTPRequestHandler):
             )
             command_panel = f"""
 <div class="panel">
-  <h2>{U(r'FoxBrain \u7ecf\u8425\u96f7\u8fbe')}</h2>
-  <p class="small">{U(r'\u7cfb\u7edf\u5df2\u6839\u636e SAP \u9500\u552e\u3001\u6bdb\u5229\u3001\u5e93\u5b58\u548c\u76ee\u6807\u8fdb\u5ea6\u81ea\u52a8\u7b5b\u51fa\u4eca\u5929\u5e94\u4f18\u5148\u5904\u7406\u7684\u4e8b\u3002')}</p>
+  <h2>{U(r'\u7ecf\u8425\u96f7\u8fbe')}</h2>
   <div class="metrics">{metrics}</div>
 </div>
 {self.insight_cards(smart['insights'][:3])}
 <div class="split">
-  <div class="panel"><h2>{U(r'\u4eca\u65e5\u5efa\u8bae\u52a8\u4f5c')}</h2>{self.bullets(smart['actions'][:4])}<p><a class="btn dark" href="/ai-ceo">{U(r'\u6253\u5f00 AI \u603b\u7ecf\u7406')}</a></p></div>
-  <div class="panel"><h2>{U(r'\u5224\u65ad\u4f9d\u636e')}</h2>{self.bullets(smart['evidence'])}<p><a class="btn" href="/business-overview">{U(r'\u67e5\u770b\u7ecf\u8425\u603b\u89c8')}</a></p></div>
+  <div class="panel"><h2>{U(r'\u4eca\u65e5\u52a8\u4f5c')}</h2>{self.bullets(smart['actions'][:3])}<p><a class="btn dark" href="/ai-ceo">{U(r'AI \u603b\u7ecf\u7406')}</a></p></div>
+  <div class="panel"><h2>{U(r'\u6570\u636e\u4f9d\u636e')}</h2>{self.bullets(smart['evidence'][:4])}<p><a class="btn" href="/business-overview">{U(r'\u7ecf\u8425\u603b\u89c8')}</a></p></div>
 </div>"""
         else:
             command_panel = f"""
 <div class="panel">
-  <h2>{U(r'FoxBrain \u5de5\u4f5c\u53f0')}</h2>
-  <p class="small">{U(r'\u5df2\u6309\u4f60\u7684\u89d2\u8272\u5c55\u793a\u53ef\u7528\u5165\u53e3\uff0c\u7ecf\u8425\u654f\u611f\u6570\u636e\u4ec5\u5411\u6388\u6743\u89d2\u8272\u5f00\u653e\u3002')}</p>
+  <h2>{U(r'\u5de5\u4f5c\u53f0')}</h2>
 </div>"""
         cards = [
-            self.card("FoxBrain Jarvis", U(r"\u7edf\u4e00 AI \u603b\u7ba1\u5165\u53e3\uff1a\u76f4\u63a5\u95ee\u7ecf\u8425\u3001SAP\u3001\u77e5\u8bc6\u5e93\u3001\u4efb\u52a1\u548c\u667a\u80fd\u4f53\u534f\u540c\u3002"), "/jarvis", "btn", True),
-            self.card(U(r"AI \u603b\u7ecf\u7406"), U(r"\u4eca\u5929\u516c\u53f8\u60c5\u51b5\u3001\u98ce\u9669\u63d0\u9192\u3001\u7ecf\u8425\u5efa\u8bae\u3002"), "/ai-ceo", "btn", can_boss),
-            self.card(U(r"\u7ecf\u8425\u603b\u89c8"), U(r"\u9500\u552e\u3001\u5229\u6da6\u3001\u5e93\u5b58\u3001\u73b0\u91d1\u6d41\u3002"), "/business-overview", "btn dark", can_boss),
-            self.card(U(r"\u95e8\u5e97\u4e2d\u5fc3"), U(r"\u5357\u5c71\u5e97\u3001\u632f\u5174\u5e97\u3001\u822a\u82d1\u5e97\u7b49\u95e8\u5e97\u6863\u6848\u3002"), "/stores", "btn green", can_manager),
-            self.card(U(r"\u5458\u5de5\u4e2d\u5fc3"), U(r"\u5458\u5de5\u4fe1\u606f\u3001\u9500\u552e\u3001\u6536\u5165\u3001\u6210\u957f\u8bb0\u5f55\u3002"), "/employees", "btn green", can_manager),
-            self.card(U(r"\u54c1\u724c\u4e2d\u5fc3"), U(r"KAILAS\u3001Mammut\u3001OSPREY\u3001Deuter \u7b49\u54c1\u724c\u6863\u6848\u3002"), "/brands", "btn", role in ("boss", "admin", "purchasing", "store_manager")),
+            self.card("Jarvis", U(r"\u76f4\u63a5\u95ee\u7ecf\u8425\u3002"), "/jarvis", "btn", True),
+            self.card(U(r"AI \u603b\u7ecf\u7406"), U(r"\u4eca\u5929\u770b\u4ec0\u4e48\u3002"), "/ai-ceo", "btn", can_boss),
+            self.card(U(r"\u7ecf\u8425\u603b\u89c8"), U(r"\u6570\u5b57\u548c\u5f02\u5e38\u3002"), "/business-overview", "btn dark", can_boss),
+            self.card(U(r"\u95e8\u5e97"), U(r"\u95e8\u5e97\u6863\u6848\u3002"), "/stores", "btn green", can_manager),
+            self.card(U(r"\u5458\u5de5"), U(r"\u5458\u5de5\u6863\u6848\u3002"), "/employees", "btn green", can_manager),
+            self.card(U(r"\u54c1\u724c"), U(r"\u54c1\u724c\u6863\u6848\u3002"), "/brands", "btn", role in ("boss", "admin", "purchasing", "store_manager")),
             self.card(U(r"\u4ea7\u54c1\u4e2d\u5fc3"), U(r"\u4ea7\u54c1\u8bf4\u660e\u3001\u5e93\u5b58\u3001\u9500\u552e\u5386\u53f2\u3001AI \u8bdd\u672f\u3002"), "/products", "btn", True),
             self.card(U(r"\u4f9b\u5e94\u5546\u4e2d\u5fc3"), U(r"\u5408\u540c\u3001\u4ed8\u6b3e\u3001\u4f9b\u8d27\u8bb0\u5f55\u3002"), "/suppliers", "btn orange", role in ("boss", "admin", "purchasing", "finance")),
             self.card(U(r"\u987e\u5ba2\u4e2d\u5fc3"), U(r"\u6d88\u8d39\u8bb0\u5f55\u3001\u6807\u7b7e\u3001\u4f1a\u5458\u8d21\u732e\u3002"), "/members", "btn green", True),
@@ -4406,7 +4400,22 @@ class App(BaseHTTPRequestHandler):
         info = '<div class="panel"><strong>{}</strong><p class="small">{}：{} ｜ {}：{} ｜ {}：{}</p></div>'.format(
             U(r"\u5f53\u524d\u8d26\u53f7"), T["name"], esc(user["name"]), T["store"], esc(user["store"]), T["role"], esc(ROLES.get(role, role))
         )
-        self.out(layout(T["brand"], command_panel + '<div class="grid">' + "".join(cards) + "</div>" + info, user=user, wide=True))
+        primary_cards = cards[:6]
+        more_links = [
+            (U(r"\u4ea7\u54c1"), "/products"),
+            (U(r"\u4f9b\u5e94\u5546"), "/suppliers"),
+            (U(r"\u4f1a\u5458"), "/members"),
+            (U(r"\u5e93\u5b58\u91c7\u8d2d"), "/inventory"),
+            (U(r"\u8d22\u52a1"), "/finance"),
+            (U(r"\u77e5\u8bc6"), "/knowledge"),
+            (U(r"\u4efb\u52a1"), "/tasks"),
+            (U(r"\u7ba1\u7406"), "/admin"),
+        ]
+        more = '<div class="panel"><h2>{}</h2><div>{}</div></div>'.format(
+            U(r"\u66f4\u591a\u529f\u80fd"),
+            "".join('<a class="pill" href="{}">{}</a>'.format(esc(href), esc(label)) for label, href in more_links),
+        )
+        self.out(layout(T["brand"], command_panel + '<div class="grid">' + "".join(primary_cards) + "</div>" + more + info, user=user, wide=True))
 
     def module_page(self, user, path):
         user = self.require_login(user)
@@ -4933,6 +4942,12 @@ class App(BaseHTTPRequestHandler):
                 "inventory_amount": s.get("inventory_amount") or 0,
                 "risk_count": s.get("risk_count") or 0,
                 "data_date": s.get("data_date") or "",
+            },
+            "source": {
+                "name": U(r"SAP B1 \u540c\u6b65\u6458\u8981"),
+                "file": s.get("_source") or SAP_SUMMARY_FILE,
+                "loaded_at": s.get("_loaded_at") or "",
+                "is_fallback": bool(s.get("_is_fallback")),
             },
             "ai_suggestions": s.get("ai_suggestions", []) or [],
             "todos": s.get("todos", []) or [],
@@ -11626,6 +11641,7 @@ class App(BaseHTTPRequestHandler):
             ("task_creation", ["task", U(r"\u4efb\u52a1"), U(r"\u5b89\u6392"), U(r"\u8ddf\u8fdb")]),
             ("report_generation", ["report", U(r"\u62a5\u544a"), U(r"\u65e5\u62a5"), U(r"\u5468\u62a5"), U(r"\u6708\u62a5")]),
             ("sap_query", ["sap", "b1", U(r"\u9500\u552e"), U(r"\u6bdb\u5229"), U(r"\u5e93\u5b58"), U(r"\u95e8\u5e97")]),
+            ("brand_query", ["osprey", "kailas", "mammut", "salomon", "deuter", U(r"\u54c1\u724c"), U(r"\u5904\u7406")]),
             ("knowledge_query", [U(r"\u77e5\u8bc6"), U(r"\u5408\u540c"), U(r"\u5236\u5ea6"), "sop", U(r"\u57f9\u8bad")]),
             ("research_query", [U(r"\u5916\u90e8"), U(r"\u884c\u4e1a"), U(r"\u5e02\u573a"), U(r"\u65b0\u95fb"), U(r"\u4ef7\u683c")]),
             ("memory_query", [U(r"\u8bb0\u5fc6"), U(r"\u539f\u5219"), U(r"\u504f\u597d"), U(r"\u51b3\u7b56")]),
@@ -11649,6 +11665,16 @@ class App(BaseHTTPRequestHandler):
             if not data["has_data"]:
                 result["limitations"].append(data["empty_message"])
             result["next_actions"] += [{"label": U(r"\u6253\u5f00\u7ecf\u8425\u9a7e\u9a76\u8231"), "url": "/business-overview"}]
+        if intent == "brand_query":
+            data = self.cockpit_data()
+            smart = self.smart_business_insights()
+            result["data"] = {"metrics": data["metrics"], "actions": smart["actions"], "evidence": smart["evidence"]}
+            result["sources"].append({"type": "sap_summary", "title": U(r"SAP B1 \u540c\u6b65\u6458\u8981"), "url": "/sap-sync"})
+            result["sources"].append({"type": "brand_growth", "title": U(r"\u54c1\u724c\u589e\u957f\u5f15\u64ce"), "url": "/brand-growth"})
+            if "osprey" in (question or "").lower():
+                result["sources"].append({"type": "inventory_decision", "title": U(r"Osprey \u5e93\u5b58\u51b3\u7b56"), "url": "/inventory-decision/osprey"})
+                result["next_actions"].append({"label": U(r"\u6253\u5f00 Osprey \u5e93\u5b58\u51b3\u7b56"), "url": "/inventory-decision/osprey"})
+            result["limitations"].append(U(r"\u5f53\u524d Jarvis \u4ee5 SAP \u6458\u8981\u4e3a\u51c6\uff1b\u54c1\u724c\u7ea7\u660e\u7ec6\u9700\u7b49 SAP \u54c1\u724c\u7ef4\u5ea6\u540c\u6b65\u540e\u518d\u7ec6\u5206\u3002"))
         if intent == "knowledge_query":
             terms = [w for w in re.split(r"\s+", question or "") if w][:6] or [question]
             rows = []
@@ -11750,12 +11776,24 @@ class App(BaseHTTPRequestHandler):
         answer = U(r"Jarvis \u5bf9\u8bdd\u5165\u53e3\u5df2\u5efa\u7acb\uff0c\u5df2\u6309\u95ee\u9898\u610f\u56fe\u8fde\u63a5\u73b0\u6709\u77e5\u8bc6\u3001SAP \u6458\u8981\u3001\u8bb0\u5fc6\u3001\u56fe\u8c31\u3001\u4efb\u52a1\u548c\u667a\u80fd\u4f53\u6a21\u5757\u3002")
         if intent in ("business_query", "sap_query") and tool["data"].get("metrics"):
             m = tool["data"]["metrics"]
-            answer = "{}\n\n{}: {} | {}: {} | {}: {} | {}: {}".format(
-                U(r"\u5df2\u4ece SAP B1 \u6458\u8981\u548c\u7ecf\u8425\u9a7e\u9a76\u8231\u53d6\u5230\u5f53\u524d\u53ef\u7528\u6570\u636e\u3002"),
+            smart = self.smart_business_insights()
+            action = smart["actions"][0] if smart["actions"] else U(r"\u5148\u590d\u6838 SAP \u540c\u6b65\u65e5\u671f\u548c\u4e3b\u8981\u6307\u6807\u53e3\u5f84\u3002")
+            answer = "{}\n\n{}: {} | {}: {} | {}: {} | {}: {}\n\n{}: {}".format(
+                U(r"\u7ed3\u8bba\uff1a\u6211\u4ee5\u540c\u4e00\u4efd SAP B1 \u540c\u6b65\u6458\u8981\u4e3a\u51c6\u3002"),
                 U(r"\u6628\u65e5\u9500\u552e"), money(m.get("yesterday_sales")),
                 U(r"\u672c\u6708\u9500\u552e"), money(m.get("month_sales")),
                 U(r"\u5b8c\u6210\u7387"), pct(m.get("completion_rate")),
                 U(r"\u5e93\u5b58\u91d1\u989d"), money(m.get("inventory_amount")),
+                U(r"\u4eca\u5929\u5148\u505a"), action,
+            )
+        elif intent == "brand_query":
+            actions = tool["data"].get("actions", [])
+            evidence = tool["data"].get("evidence", [])
+            answer = "{}\n\n{}\n\n{}: {}\n{}: {}".format(
+                U(r"\u7ed3\u8bba\uff1a\u54c1\u724c\u95ee\u9898\u5148\u6309 SAP \u6458\u8981\u548c\u5e93\u5b58\u98ce\u9669\u5904\u7406\uff0c\u4e0d\u7f16\u9020\u54c1\u724c\u660e\u7ec6\u3002"),
+                U(r"\u5982\u679c\u662f Osprey\uff0c\u5148\u505a\u5e93\u5b58\u3001\u6298\u6263\u3001\u5916\u90e8\u4ef7\u683c\u4e09\u9879\u590d\u6838\uff0c\u518d\u51b3\u5b9a\u662f\u8c03\u62e8\u3001\u63a7\u6298\u6263\u8fd8\u662f\u6e05\u7406\u6ede\u9500\u3002"),
+                U(r"\u4f9d\u636e"), "；".join(evidence[:3]) if evidence else U(r"\u6682\u65e0\u54c1\u724c\u660e\u7ec6"),
+                U(r"\u5efa\u8bae"), actions[0] if actions else U(r"\u6253\u5f00 Osprey \u5e93\u5b58\u51b3\u7b56\u9875\u505a\u4eba\u5de5\u590d\u6838\u3002"),
             )
         elif intent == "knowledge_query":
             count = len(tool["data"].get("knowledge_items", []))
@@ -11855,17 +11893,21 @@ class App(BaseHTTPRequestHandler):
             current = None
             if cid:
                 current = conn.execute("select * from jarvis_conversations where (id=? or conversation_id=?) and user_id=?", (cid if cid.isdigit() else -1, cid, user["id"])).fetchone()
-            if not current and conversations:
-                current = conversations[0]
             messages = conn.execute("select * from jarvis_messages where conversation_id=? order by created_at asc limit 80", (current["id"],)).fetchall() if current else []
             actions = conn.execute("select * from jarvis_action_confirmations where created_by=? and status='pending' order by created_at desc limit 8", (user["id"],)).fetchall()
-        suggestions = self.jarvis_suggestions()
+        cockpit = self.cockpit_data()
+        smart = self.smart_business_insights()
+        quick_questions = [
+            U(r"\u4eca\u5929\u6700\u9700\u8981\u5904\u7406\u54ea\u4ef6\u4e8b\uff1f"),
+            U(r"\u54ea\u4e2a\u95e8\u5e97\u6bdb\u5229\u5f02\u5e38\uff1f"),
+            U(r"Osprey \u73b0\u5728\u5e94\u8be5\u600e\u4e48\u5904\u7406\uff1f"),
+            U(r"\u628a\u4eca\u5929\u7684\u98ce\u9669\u53d8\u6210\u4efb\u52a1\u3002"),
+        ]
         cfg = ai_provider_config()
         ai_status_text = (U(r"\u5df2\u63a5\u5165\u5927\u6a21\u578b") + " · " + cfg["provider"] + " · " + cfg["model"]) if cfg["configured"] else U(r"\u672a\u914d\u7f6e\u5927\u6a21\u578b API\uff0c\u5f53\u524d\u4f7f\u7528\u5185\u7f6e\u7ecf\u8425\u52a9\u624b\u6a21\u5f0f")
         chips = "".join(
             "<button type='button' onclick=\"document.getElementById('jarvis-question').value='{}'\">{}</button>".format(esc(q), esc(q))
-            for group in suggestions.values()
-            for q in group[:2]
+            for q in quick_questions
         )
         message_html = ""
         for msg in messages:
@@ -11877,8 +11919,9 @@ class App(BaseHTTPRequestHandler):
             content_html = esc(msg["content"]).replace("\n", "<br>")
             message_html += "<div class='chat-message {}'><strong>{}</strong><p>{}</p>{}</div>".format(esc(msg["role"]), esc(msg["role"]), content_html, source_html)
         if not message_html:
-            message_html = "<div class='chat-message assistant'><strong>Jarvis</strong><p>{}</p></div>".format(U(r"\u4f60\u53ef\u4ee5\u76f4\u63a5\u95ee\u7ecf\u8425\u3001\u77e5\u8bc6\u5e93\u3001SAP\u3001\u8bb0\u5fc6\u3001\u56fe\u8c31\u548c\u4efb\u52a1\u3002\u6211\u4f1a\u5148\u627e\u5df2\u6709\u6765\u6e90\uff0c\u6ca1\u6709\u6765\u6e90\u65f6\u660e\u786e\u8bf4\u7b49\u5f85\u63a5\u5165\u3002"))
-        conversation_links = "".join("<a class='pill' href='/jarvis?conversation_id={}'>{}</a>".format(c["id"], esc(c["title"])) for c in conversations) or self.empty_state(U(r"\u6682\u65e0\u5386\u53f2\u5bf9\u8bdd\u3002"))
+            first_action = smart["actions"][0] if smart["actions"] else U(r"\u5148\u786e\u8ba4 SAP \u540c\u6b65\u662f\u6700\u65b0\u6570\u636e\u3002")
+            message_html = "<div class='chat-message assistant'><strong>Jarvis</strong><p>{}</p></div>".format(U(r"\u6211\u5df2\u5207\u5230\u7b80\u6d01\u6a21\u5f0f\uff1a\u5148\u770b SAP \u6458\u8981\uff0c\u518d\u7ed9\u52a8\u4f5c\u3002\u4eca\u5929\u5148\u505a\uff1a") + first_action)
+        conversation_links = "".join("<a class='pill' href='/jarvis?conversation_id={}'>{}</a>".format(c["id"], esc(c["title"])) for c in conversations[:6]) or self.empty_state(U(r"\u6682\u65e0\u5386\u53f2\u5bf9\u8bdd\u3002"))
         action_rows = ""
         for action in actions:
             action_rows += """
@@ -11897,8 +11940,13 @@ class App(BaseHTTPRequestHandler):
   <div>
     <div class="panel">
       <h2>FoxBrain Jarvis</h2>
-      <p class="small">{U(r'\u7edf\u4e00 AI \u52a9\u7406\u5165\u53e3\uff1a\u4e1a\u52a1\u67e5\u8be2\u3001\u77e5\u8bc6\u68c0\u7d22\u3001\u8bb0\u5fc6\u3001\u56fe\u8c31\u3001\u667a\u80fd\u4f53\u534f\u540c\u548c\u4efb\u52a1\u751f\u6210\u3002')}</p>
+      <p class="small">{U(r'\u7b80\u6d01\u6a21\u5f0f\uff1a\u53ea\u56de\u7b54\u7ed3\u8bba\u3001\u4f9d\u636e\u548c\u4e0b\u4e00\u6b65\uff0c\u7ecf\u8425\u6570\u5b57\u7edf\u4e00\u4f7f\u7528 SAP B1 \u540c\u6b65\u6458\u8981\u3002')}</p>
       <p class="small"><span class="confidence">{esc(ai_status_text)}</span></p>
+      <div class="metrics">
+        {self.metric(U(r'\u6570\u636e\u65e5\u671f'), cockpit['metrics']['data_date'] or U(r'\u672a\u540c\u6b65'), U(r'SAP B1'))}
+        {self.metric(U(r'\u6628\u65e5\u9500\u552e'), U(r'\uffe5') + money(cockpit['metrics']['yesterday_sales']), U(r'\u7edf\u4e00\u53e3\u5f84'))}
+        {self.metric(U(r'\u672c\u6708\u9500\u552e'), U(r'\uffe5') + money(cockpit['metrics']['month_sales']), U(r'\u5b8c\u6210\u7387 ') + pct(cockpit['metrics']['completion_rate']))}
+      </div>
       <div class="chipbar">{chips}</div>
     </div>
     <div class="panel">{message_html}</div>
