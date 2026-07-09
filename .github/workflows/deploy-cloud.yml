@@ -13,6 +13,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare compose env
+        run: cp .env.example .env
+
       - name: Validate Docker Compose
         run: docker compose config
 
